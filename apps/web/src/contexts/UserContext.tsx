@@ -46,33 +46,49 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           setSupabaseUser(session.user);
           const metadata = session.user.user_metadata;
 
-          // Load subscription and plan limits
-          const { data: subscription } = await supabase
-            .from('subscriptions')
-            .select(`
-              *,
-              pricing_plans!inner (
-                name,
-                max_parses_per_month,
-                max_scores_per_month,
-                ai_scoring_enabled
-              )
-            `)
-            .eq('user_id', session.user.id)
-            .eq('status', 'active')
-            .single();
+          // Load subscription and plan limits (if exists)
+          let subscriptionTier: 'free' | 'basic' | 'professional' | 'enterprise' = 'free';
+          let planLimits: PlanLimits = {
+            max_parses: 10,
+            max_scores: 10,
+            ai_scoring_enabled: false
+          };
+
+          try {
+            const { data: subscription, error } = await supabase
+              .from('subscriptions')
+              .select(`
+                *,
+                pricing_plans!inner (
+                  name,
+                  max_parses_per_month,
+                  max_scores_per_month,
+                  ai_scoring_enabled
+                )
+              `)
+              .eq('user_id', session.user.id)
+              .eq('status', 'active')
+              .maybeSingle();
+
+            if (!error && subscription) {
+              subscriptionTier = subscription.pricing_plans?.name?.toLowerCase() as any || 'free';
+              planLimits = {
+                max_parses: subscription.pricing_plans?.max_parses_per_month || 10,
+                max_scores: subscription.pricing_plans?.max_scores_per_month || 10,
+                ai_scoring_enabled: subscription.pricing_plans?.ai_scoring_enabled || false
+              };
+            }
+          } catch (err) {
+            console.warn('Could not load subscription data, using free tier defaults');
+          }
 
           setUser({
             firstName: metadata.firstName || "",
             lastName: metadata.lastName || "",
             email: session.user.email || "",
             company: metadata.company || "",
-            subscriptionTier: subscription?.pricing_plans?.name?.toLowerCase() || 'free',
-            planLimits: {
-              max_parses: subscription?.pricing_plans?.max_parses_per_month || 10,
-              max_scores: subscription?.pricing_plans?.max_scores_per_month || 10,
-              ai_scoring_enabled: subscription?.pricing_plans?.ai_scoring_enabled || false
-            }
+            subscriptionTier,
+            planLimits
           });
         }
       } catch (error) {
@@ -90,33 +106,49 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         setSupabaseUser(session.user);
         const metadata = session.user.user_metadata;
 
-        // Load subscription and plan limits
-        const { data: subscriptionData } = await supabase
-          .from('subscriptions')
-          .select(`
-            *,
-            pricing_plans!inner (
-              name,
-              max_parses_per_month,
-              max_scores_per_month,
-              ai_scoring_enabled
-            )
-          `)
-          .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .single();
+        // Load subscription and plan limits (if exists)
+        let subscriptionTier: 'free' | 'basic' | 'professional' | 'enterprise' = 'free';
+        let planLimits: PlanLimits = {
+          max_parses: 10,
+          max_scores: 10,
+          ai_scoring_enabled: false
+        };
+
+        try {
+          const { data: subscriptionData, error } = await supabase
+            .from('subscriptions')
+            .select(`
+              *,
+              pricing_plans!inner (
+                name,
+                max_parses_per_month,
+                max_scores_per_month,
+                ai_scoring_enabled
+              )
+            `)
+            .eq('user_id', session.user.id)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (!error && subscriptionData) {
+            subscriptionTier = subscriptionData.pricing_plans?.name?.toLowerCase() as any || 'free';
+            planLimits = {
+              max_parses: subscriptionData.pricing_plans?.max_parses_per_month || 10,
+              max_scores: subscriptionData.pricing_plans?.max_scores_per_month || 10,
+              ai_scoring_enabled: subscriptionData.pricing_plans?.ai_scoring_enabled || false
+            };
+          }
+        } catch (err) {
+          console.warn('Could not load subscription data, using free tier defaults');
+        }
 
         setUser({
           firstName: metadata.firstName || "",
           lastName: metadata.lastName || "",
           email: session.user.email || "",
           company: metadata.company || "",
-          subscriptionTier: subscriptionData?.pricing_plans?.name?.toLowerCase() || 'free',
-          planLimits: {
-            max_parses: subscriptionData?.pricing_plans?.max_parses_per_month || 10,
-            max_scores: subscriptionData?.pricing_plans?.max_scores_per_month || 10,
-            ai_scoring_enabled: subscriptionData?.pricing_plans?.ai_scoring_enabled || false
-          }
+          subscriptionTier,
+          planLimits
         });
       } else {
         setSupabaseUser(null);
