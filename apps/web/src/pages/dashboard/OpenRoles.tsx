@@ -59,7 +59,7 @@ const OpenRoles = () => {
     title: '',
     department: '',
     location: '',
-    type: 'Full-time',
+    type: 'full-time',
     salary: '',
     description: '',
   });
@@ -119,7 +119,7 @@ const OpenRoles = () => {
       title: '',
       department: '',
       location: '',
-      type: 'Full-time',
+      type: 'full-time',
       salary: '',
       description: '',
     });
@@ -205,12 +205,12 @@ const OpenRoles = () => {
                         <SelectValue placeholder="Select employment type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Full-time">Full-time</SelectItem>
-                        <SelectItem value="Part-time">Part-time</SelectItem>
-                        <SelectItem value="Contract">Contract</SelectItem>
-                        <SelectItem value="Temporary">Temporary</SelectItem>
-                        <SelectItem value="Internship">Internship</SelectItem>
-                        <SelectItem value="Freelance">Freelance</SelectItem>
+                        <SelectItem value="full-time">Full-time</SelectItem>
+                        <SelectItem value="part-time">Part-time</SelectItem>
+                        <SelectItem value="contract">Contract</SelectItem>
+                        <SelectItem value="freelance">Freelance</SelectItem>
+                        <SelectItem value="temporary">Temporary</SelectItem>
+                        <SelectItem value="internship">Internship</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

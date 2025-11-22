@@ -215,7 +215,7 @@ const ParseCV = () => {
       title: newRoleTitle,
       department: "New",
       location: "TBD",
-      type: "Full-time",
+      type: "full-time",
       salary: "TBD",
       description: "Role description to be added",
     };
