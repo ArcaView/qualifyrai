@@ -70,14 +70,14 @@ export function useUsage() {
         .from('subscriptions')
         .select(`
           *,
-          pricing_plans!inner (
+          pricing_plans (
             max_parses_per_month,
             max_scores_per_month
           )
         `)
         .eq('user_id', supabaseUser.id)
         .eq('status', 'active')
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
         // User doesn't have an active subscription, use free tier limits
