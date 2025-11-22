@@ -761,7 +761,10 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Role creation error:', error);
+        throw error;
+      }
 
       const newRole: Role = {
         ...roleData,
@@ -781,9 +784,10 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       return data.id;
     } catch (err: any) {
+      console.error('Failed to create role:', err);
       toast({
         title: 'Error creating role',
-        description: err.message,
+        description: err.message || err.hint || 'Unknown error occurred',
         variant: 'destructive'
       });
       throw err;

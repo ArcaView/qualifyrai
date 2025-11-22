@@ -59,7 +59,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               .from('subscriptions')
               .select(`
                 *,
-                pricing_plans!inner (
+                pricing_plans (
                   name,
                   max_parses_per_month,
                   max_scores_per_month,
@@ -119,7 +119,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             .from('subscriptions')
             .select(`
               *,
-              pricing_plans!inner (
+              pricing_plans (
                 name,
                 max_parses_per_month,
                 max_scores_per_month,
