@@ -105,7 +105,7 @@ interface RolesContextType {
   addInterview: (roleId: string, candidateId: string, interview: Omit<Interview, 'id'>) => Promise<void>;
   updateInterview: (roleId: string, candidateId: string, interviewId: string, updates: Partial<Interview>) => Promise<void>;
   deleteInterview: (roleId: string, candidateId: string, interviewId: string) => Promise<void>;
-  addRole: (role: Omit<Role, 'id' | 'candidatesList' | 'candidates' | 'createdAt' | 'status'>) => Promise<void>;
+  addRole: (role: Omit<Role, 'id' | 'candidatesList' | 'candidates' | 'createdAt' | 'status'>) => Promise<string>;
 }
 
 const RolesContext = createContext<RolesContextType | undefined>(undefined);
@@ -778,6 +778,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         title: 'Role created',
         description: 'Role has been created successfully'
       });
+
+      return data.id;
     } catch (err: any) {
       toast({
         title: 'Error creating role',

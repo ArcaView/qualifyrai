@@ -208,7 +208,7 @@ const ParseCV = () => {
     });
   };
 
-  const handleCreateRole = () => {
+  const handleCreateRole = async () => {
     if (!newRoleTitle.trim()) return;
 
     const newRoleData = {
@@ -220,22 +220,18 @@ const ParseCV = () => {
       description: "Role description to be added",
     };
 
-    addRole(newRoleData);
+    try {
+      // Await role creation and get the new role ID
+      const newRoleId = await addRole(newRoleData);
 
-    setTimeout(() => {
-      const latestRole = roles[roles.length - 1];
-      if (latestRole) {
-        setSelectedRole(latestRole.id);
-      }
-    }, 100);
+      // Select the newly created role
+      setSelectedRole(newRoleId);
 
-    setNewRoleTitle("");
-    setNewRoleDialogOpen(false);
-
-    toast({
-      title: "Role Created",
-      description: `${newRoleTitle} has been created successfully.`,
-    });
+      setNewRoleTitle("");
+      setNewRoleDialogOpen(false);
+    } catch (error) {
+      // Error is already handled by addRole with toast
+    }
   };
 
   const handleScore = async () => {

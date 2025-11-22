@@ -6,6 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -52,7 +59,7 @@ const OpenRoles = () => {
     title: '',
     department: '',
     location: '',
-    type: 'full-time',
+    type: 'Full-time',
     salary: '',
     description: '',
   });
@@ -112,7 +119,7 @@ const OpenRoles = () => {
       title: '',
       department: '',
       location: '',
-      type: 'full-time',
+      type: 'Full-time',
       salary: '',
       description: '',
     });
@@ -190,12 +197,22 @@ const OpenRoles = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="type">Employment Type *</Label>
-                    <Input
-                      id="type"
-                      placeholder="e.g., Full-time, Contract"
+                    <Select
                       value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    />
+                      onValueChange={(value) => setFormData({ ...formData, type: value })}
+                    >
+                      <SelectTrigger id="type">
+                        <SelectValue placeholder="Select employment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Full-time">Full-time</SelectItem>
+                        <SelectItem value="Part-time">Part-time</SelectItem>
+                        <SelectItem value="Contract">Contract</SelectItem>
+                        <SelectItem value="Temporary">Temporary</SelectItem>
+                        <SelectItem value="Internship">Internship</SelectItem>
+                        <SelectItem value="Freelance">Freelance</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
