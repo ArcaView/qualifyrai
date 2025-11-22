@@ -47,8 +47,24 @@ serve(async (req) => {
     // Parse request body
     const { priceId } = await req.json();
 
+    // Validate priceId
     if (!priceId) {
       throw new Error('Price ID is required');
+    }
+
+    // Validate type
+    if (typeof priceId !== 'string') {
+      throw new Error('Invalid price ID: must be a string');
+    }
+
+    // Validate format - Stripe price IDs start with 'price_'
+    if (!priceId.startsWith('price_')) {
+      throw new Error('Invalid Stripe price ID format');
+    }
+
+    // Validate length (Stripe price IDs are typically ~28 characters)
+    if (priceId.length < 10 || priceId.length > 50) {
+      throw new Error('Invalid price ID length');
     }
 
     // Initialize Stripe

@@ -54,7 +54,28 @@ serve(async (req) => {
     }
 
     // Parse request body for optional key name
-    const { name } = await req.json().catch(() => ({ name: 'API Key' }));
+    const body = await req.json().catch(() => ({ name: 'API Key' }));
+
+    // Validate and sanitize name input
+    let sanitizedName = 'API Key';
+    if (body.name) {
+      // Validate type
+      if (typeof body.name !== 'string') {
+        throw new Error('Invalid name parameter: must be a string');
+      }
+
+      // Sanitize: remove HTML tags, trim whitespace, limit length
+      sanitizedName = body.name
+        .replace(/<[^>]*>/g, '') // Strip HTML tags
+        .replace(/[<>'"]/g, '')   // Remove potentially dangerous characters
+        .trim()
+        .substring(0, 50);        // Limit to 50 characters
+
+      // Use default if empty after sanitization
+      if (!sanitizedName) {
+        sanitizedName = 'API Key';
+      }
+    }
 
     // Generate cryptographically secure API key
     // Format: qfy_live_<32-char-random-string>
@@ -77,7 +98,7 @@ serve(async (req) => {
         user_id: user.id,
         key_prefix: keyPrefix,
         key_hash: keyHash,
-        name: name || 'API Key',
+        name: sanitizedName,
         is_active: true,
       })
       .select()

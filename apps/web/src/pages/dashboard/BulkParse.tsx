@@ -35,11 +35,12 @@ import {
   Phone,
   MapPin,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoles } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { parseScoreAPI } from "@/lib/api/parsescore-client";
 import { validateFiles, formatFileSize } from "@/lib/file-validation";
+import { useUsage } from "@/hooks/useUsage";
 
 interface FileWithStatus {
   file: File;
@@ -51,6 +52,14 @@ interface FileWithStatus {
 const BulkParse = () => {
   const { roles, addCandidateToRole, addRole } = useRoles();
   const { toast } = useToast();
+  const {
+    usage,
+    limits,
+    loadUsageData,
+    incrementParseUsage,
+    canParse,
+    remainingParses
+  } = useUsage();
 
   const [files, setFiles] = useState<FileWithStatus[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -58,6 +67,11 @@ const BulkParse = () => {
   const [jobDescription, setJobDescription] = useState("");
   const [newRoleDialogOpen, setNewRoleDialogOpen] = useState(false);
   const [newRoleTitle, setNewRoleTitle] = useState("");
+
+  // Load usage data on mount
+  useEffect(() => {
+    loadUsageData();
+  }, [loadUsageData]);
 
   const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -146,6 +160,18 @@ const BulkParse = () => {
       return;
     }
 
+    // Check quota before bulk parsing
+    const fileCount = files.length;
+    if (!canParse(fileCount)) {
+      const remaining = remainingParses();
+      toast({
+        title: "Quota Exceeded",
+        description: `You can only parse ${remaining} more CV${remaining !== 1 ? 's' : ''} this month. You're trying to parse ${fileCount}. Upgrade your plan to continue.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProcessing(true);
 
     // Mark all files as processing
@@ -227,6 +253,11 @@ const BulkParse = () => {
       });
 
       setFiles(updatedFiles);
+
+      // Increment usage for successful parses
+      if (successCount > 0) {
+        await incrementParseUsage(successCount);
+      }
 
       toast({
         title: "Bulk Parse Complete",

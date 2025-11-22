@@ -34,15 +34,30 @@ import {
   Plus,
   Briefcase,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRoles } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { parseScoreAPI } from "@/lib/api";
 import { validateFile, formatFileSize } from "@/lib/file-validation";
+import { useUsage } from "@/hooks/useUsage";
+import { useUser } from "@/contexts/UserContext";
 
 const ParseCV = () => {
   const { roles, addCandidateToRole, addRole } = useRoles();
   const { toast } = useToast();
+  const { user } = useUser();
+  const {
+    usage,
+    limits,
+    loading: usageLoading,
+    loadUsageData,
+    incrementParseUsage,
+    incrementScoreUsage,
+    canParse,
+    canScore,
+    remainingParses,
+    remainingScores
+  } = useUsage();
 
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -53,6 +68,11 @@ const ParseCV = () => {
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [newRoleDialogOpen, setNewRoleDialogOpen] = useState(false);
   const [newRoleTitle, setNewRoleTitle] = useState("");
+
+  // Load usage data on mount
+  useEffect(() => {
+    loadUsageData();
+  }, [loadUsageData]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -86,12 +106,25 @@ const ParseCV = () => {
   const handleParse = async () => {
     if (!file || !selectedRole) return;
 
+    // Check quota before parsing
+    if (!canParse(1)) {
+      toast({
+        title: "Quota Exceeded",
+        description: `You've used all ${limits?.max_parses || 0} parses this month. Upgrade your plan to continue.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setParsing(true);
 
     try {
       const parseResult = await parseScoreAPI.parseCV(file);
 
       setResult(parseResult);
+
+      // Increment usage after successful parse
+      await incrementParseUsage(1);
 
       // Adapt to actual API structure
       const parsedCandidate = parseResult.candidate || {};
@@ -208,19 +241,35 @@ const ParseCV = () => {
   const handleScore = async () => {
     if (!result || !jobDescription.trim()) return;
 
+    // Check quota before scoring
+    if (!canScore(1)) {
+      toast({
+        title: "Quota Exceeded",
+        description: `You've used all ${limits?.max_scores || 0} scores this month. Upgrade your plan to continue.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setScoring(true);
 
     try {
+      const aiScoringEnabled = user?.planLimits?.ai_scoring_enabled || false;
+
       const scoreResponse = await parseScoreAPI.scoreCV(
         result.request_id,
-        jobDescription
+        jobDescription,
+        aiScoringEnabled
       );
 
       setScoreResult(scoreResponse);
 
+      // Increment usage after successful score
+      await incrementScoreUsage(1);
+
       toast({
         title: "Scoring Complete",
-        description: `Match score: ${scoreResponse.overall_score}/100`,
+        description: `Match score: ${scoreResponse.overall_score}/100${aiScoringEnabled ? ' (AI-powered)' : ''}`,
       });
 
     } catch (error: any) {
@@ -396,12 +445,12 @@ const ParseCV = () => {
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <p className="text-sm text-muted-foreground">This Month</p>
-                  <p className="text-2xl font-bold">156</p>
+                  <p className="text-2xl font-bold">{usage?.parses_used || 0}</p>
                   <p className="text-xs text-muted-foreground">parses used</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Remaining</p>
-                  <p className="text-2xl font-bold">844</p>
+                  <p className="text-2xl font-bold">{remainingParses()}</p>
                   <p className="text-xs text-muted-foreground">in your plan</p>
                 </div>
               </div>

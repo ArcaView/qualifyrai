@@ -17,16 +17,21 @@ export const parseScoreAPI = {
    * Score a candidate against a job description
    * @param parseId - The request_id from the parse response
    * @param jobDescription - The job description text
+   * @param aiScoringEnabled - Whether AI scoring is enabled for the user's plan
    * @returns Adapted score response matching the UI expectations
    */
-  async scoreCV(parseId: string, jobDescription: string): Promise<any> {
+  async scoreCV(parseId: string, jobDescription: string, aiScoringEnabled: boolean = false): Promise<any> {
     // First, fetch the parsed CV data using the parseId
     const cvData = await client.getCV(parseId);
     
     // Extract skills from the job description (simple keyword extraction)
     // In a real app, you might want to use NLP or let the user specify these
     const skillKeywords = extractSkillsFromDescription(jobDescription);
-    
+
+    // Determine scoring mode based on user's plan
+    // AI scoring (LLM mode) is only available for Professional/Enterprise tiers
+    const scoringMode = aiScoringEnabled ? 'llm' : 'baseline';
+
     // Create the score request
     const scoreRequest = {
       candidate: cvData.candidate,
@@ -36,7 +41,7 @@ export const parseScoreAPI = {
         required_skills: skillKeywords.required,
         preferred_skills: skillKeywords.preferred,
       },
-      mode: 'llm' as const, // Use LLM mode for better analysis
+      mode: scoringMode as const,
     };
 
     // Call the scoring API
