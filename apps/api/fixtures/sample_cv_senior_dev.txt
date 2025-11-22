@@ -1,0 +1,60 @@
+John Smith
+Senior Software Engineer
+London, United Kingdom
+john.smith@email.com | +44 7700 900123
+linkedin.com/in/johnsmith | github.com/jsmith
+
+PROFESSIONAL SUMMARY
+Experienced software engineer with 8+ years building scalable web applications. 
+Expert in Python, TypeScript, and cloud infrastructure. Strong track record in 
+fintech and e-commerce domains.
+
+WORK EXPERIENCE
+
+Senior Software Engineer
+TechCorp Ltd, London, UK
+January 2021 - Present
+• Led development of microservices architecture serving 2M+ users
+• Reduced API latency by 40% through caching and optimization
+• Mentored team of 5 junior developers
+• Technologies: Python, FastAPI, PostgreSQL, Redis, AWS, Docker, Kubernetes
+
+Software Engineer
+StartupXYZ, London, UK  
+March 2018 - December 2020
+• Built RESTful APIs for payment processing system
+• Implemented CI/CD pipelines using GitHub Actions
+• Collaborated with product team on feature specifications
+• Technologies: Python, Django, React, PostgreSQL, AWS
+
+Junior Developer
+WebSolutions Inc, Manchester, UK
+July 2016 - February 2018
+• Developed and maintained client websites
+• Fixed bugs and added features to existing codebase
+• Technologies: JavaScript, Node.js, MongoDB
+
+EDUCATION
+
+Bachelor of Science in Computer Science
+University of Manchester
+September 2012 - June 2016
+Grade: First Class Honours
+
+SKILLS
+
+Languages: Python, TypeScript, JavaScript, SQL, Go
+Frameworks: FastAPI, Django, React, Node.js, Express
+Cloud & DevOps: AWS, Docker, Kubernetes, Terraform, CI/CD
+Databases: PostgreSQL, MongoDB, Redis, Elasticsearch
+Tools: Git, Linux, Agile/Scrum
+
+CERTIFICATIONS
+
+AWS Certified Solutions Architect - Associate
+Amazon Web Services, 2022
+
+LANGUAGES
+
+English - Native
+Spanish - Professional

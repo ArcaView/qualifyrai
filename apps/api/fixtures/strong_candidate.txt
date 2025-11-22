@@ -1,0 +1,24 @@
+John Smith
+Email: john@example.com | Phone: +1-555-0123
+
+SUMMARY
+Senior Software Engineer with 8 years of experience in Python backend development.
+
+EXPERIENCE
+Senior Backend Engineer at TechCorp (2020-Present)
+- Built scalable APIs with FastAPI serving 10M+ requests/day
+- Architected microservices on AWS (ECS, Lambda, RDS)
+- Led migration to PostgreSQL from MongoDB
+
+Backend Engineer at StartupCo (2018-2020)
+- Developed REST APIs using Python and Django
+- Implemented Docker containerization and CI/CD pipelines
+
+SKILLS
+Python, FastAPI, Django, PostgreSQL, Docker, AWS (EC2, S3, Lambda), Redis, Git
+
+EDUCATION
+BS Computer Science, University of Technology (2014-2018)
+
+CERTIFICATIONS
+AWS Solutions Architect Associate (2021)

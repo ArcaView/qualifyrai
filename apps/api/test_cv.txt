@@ -1,0 +1,14 @@
+﻿John Doe
+Email: john@example.com | Phone: +1-555-0123
+
+EXPERIENCE
+Senior Python Developer at TechCorp (2018-Present)
+- Built REST APIs with FastAPI
+- Worked with PostgreSQL and Redis
+- Deployed on AWS with Docker
+
+SKILLS
+Python, FastAPI, PostgreSQL, Docker, AWS, Redis
+
+EDUCATION
+BS Computer Science (2016)

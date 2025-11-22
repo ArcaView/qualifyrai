@@ -1,0 +1,14 @@
+Jane Doe
+jane.doe@email.com
+
+EXPERIENCE
+Software Developer at WebAgency (2021-Present)
+- Python web development with Flask
+- MySQL database design
+- Basic AWS deployment
+
+SKILLS
+Python, Flask, MySQL, JavaScript, HTML/CSS
+
+EDUCATION
+BS Information Systems (2020)
