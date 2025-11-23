@@ -4,11 +4,61 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { usePricing } from "@/contexts/PricingContext";
+import { supabase } from "@/lib/supabase";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 const PricingPage = () => {
   const { plans, isLoading, error } = usePricing();
+  const { toast } = useToast();
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+
+  const handleGetStarted = async (priceId: string | null, planName: string) => {
+    if (!priceId) {
+      toast({
+        title: "Configuration Error",
+        description: "This plan is not yet configured. Please contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setCheckoutLoading(priceId);
+
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        // User not logged in - redirect to auth
+        window.location.href = '/auth?tab=signup';
+        return;
+      }
+
+      // Call the create-checkout-session edge function
+      const { data, error: checkoutError } = await supabase.functions.invoke('create-checkout-session', {
+        body: { priceId }
+      });
+
+      if (checkoutError) throw checkoutError;
+
+      if (data?.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      toast({
+        title: "Checkout Failed",
+        description: err.message || "Failed to create checkout session. Please try again.",
+        variant: "destructive",
+      });
+      setCheckoutLoading(null);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -70,12 +120,20 @@ const PricingPage = () => {
 
                     <CardContent className="space-y-4">
                       <Button
-                        asChild
+                        onClick={() => handleGetStarted(plan.stripe_price_id_monthly, plan.name)}
+                        disabled={checkoutLoading !== null}
                         variant={plan.is_popular ? "hero" : "default"}
                         className="w-full"
                         size="lg"
                       >
-                        <Link to="/dashboard">Get Started</Link>
+                        {checkoutLoading === plan.stripe_price_id_monthly ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          'Get Started'
+                        )}
                       </Button>
 
                       <ul className="space-y-3 pt-4">

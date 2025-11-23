@@ -14,6 +14,8 @@ export interface PricingPlan {
   is_active: boolean;
   is_popular: boolean;
   sort_order: number;
+  stripe_price_id_monthly: string | null;
+  stripe_price_id_yearly: string | null;
 }
 
 interface PricingContextType {
