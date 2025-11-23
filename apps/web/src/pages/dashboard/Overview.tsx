@@ -19,17 +19,24 @@ import {
   Clock,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoles } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { generateAllCandidatesPDF } from "@/lib/allCandidatesPDF";
+import { useUsage } from "@/hooks/useUsage";
 
 const Overview = () => {
   const navigate = useNavigate();
   const { roles } = useRoles();
   const { toast } = useToast();
+  const { usage, limits, loadUsageData } = useUsage();
   const [scoreCandidateDialogOpen, setScoreCandidateDialogOpen] = useState(false);
+
+  // Load usage data on mount
+  useEffect(() => {
+    loadUsageData();
+  }, [loadUsageData]);
 
   // Get all candidates from all roles
   const allCandidates = roles.flatMap(role =>
@@ -299,12 +306,18 @@ const Overview = () => {
                 <div>
                   <div className="flex justify-between mb-2 text-sm">
                     <span className="text-muted-foreground">CV Parses</span>
-                    <span className="font-medium">{totalCandidates} / Unlimited</span>
+                    <span className="font-medium">
+                      {usage?.parses_used || 0} / {limits?.max_parses || 0}
+                    </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
-                      className="bg-primary h-2 rounded-full"
-                      style={{ width: `${Math.min((totalCandidates / 500) * 100, 100)}%` }}
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{
+                        width: limits?.max_parses
+                          ? `${Math.min(((usage?.parses_used || 0) / limits.max_parses) * 100, 100)}%`
+                          : '0%'
+                      }}
                     />
                   </div>
                 </div>
@@ -312,12 +325,18 @@ const Overview = () => {
                 <div>
                   <div className="flex justify-between mb-2 text-sm">
                     <span className="text-muted-foreground">Scores Generated</span>
-                    <span className="font-medium">{candidatesWithScores} / Unlimited</span>
+                    <span className="font-medium">
+                      {usage?.scores_used || 0} / {limits?.max_scores || 0}
+                    </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
-                      className="bg-accent h-2 rounded-full"
-                      style={{ width: `${Math.min((candidatesWithScores / 500) * 100, 100)}%` }}
+                      className="bg-accent h-2 rounded-full transition-all"
+                      style={{
+                        width: limits?.max_scores
+                          ? `${Math.min(((usage?.scores_used || 0) / limits.max_scores) * 100, 100)}%`
+                          : '0%'
+                      }}
                     />
                   </div>
                 </div>
