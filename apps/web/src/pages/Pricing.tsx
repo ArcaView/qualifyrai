@@ -111,8 +111,7 @@ const PricingPage = () => {
                       <CardDescription className="text-base">{plan.description}</CardDescription>
                       <div className="mt-4">
                         <span className="text-4xl font-bold">
-                          {plan.price_currency === 'GBP' ? '£' : '$'}
-                          {plan.price_monthly.toFixed(2)}
+                          £{plan.price_monthly.toFixed(2)}
                         </span>
                         <span className="text-muted-foreground">/month</span>
                       </div>
