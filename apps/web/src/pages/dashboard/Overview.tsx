@@ -25,11 +25,13 @@ import { useRoles } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { generateAllCandidatesPDF } from "@/lib/allCandidatesPDF";
 import { useUsage } from "@/hooks/useUsage";
+import { useUser } from "@/contexts/UserContext";
 
 const Overview = () => {
   const navigate = useNavigate();
   const { roles } = useRoles();
   const { toast } = useToast();
+  const { user } = useUser();
   const { usage, limits, loadUsageData } = useUsage();
   const [scoreCandidateDialogOpen, setScoreCandidateDialogOpen] = useState(false);
 
@@ -121,9 +123,11 @@ const Overview = () => {
               Here's what's happening with your hiring process today.
             </p>
           </div>
-          <Badge className="bg-success/10 text-success border-success/20">
-            Pro Plan • Active
-          </Badge>
+          {user?.subscriptionTier && (
+            <Badge className="bg-success/10 text-success border-success/20">
+              {user.subscriptionTier.charAt(0).toUpperCase() + user.subscriptionTier.slice(1)} Plan • Active
+            </Badge>
+          )}
         </div>
 
         {/* Key Metrics */}

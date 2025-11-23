@@ -8,14 +8,20 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { isAuthenticated, isLoading } = useUser();
+  const { isAuthenticated, isLoading, hasActiveSubscription } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      navigate('/auth?tab=login', { replace: true });
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        // Not logged in -> redirect to login
+        navigate('/auth?tab=login', { replace: true });
+      } else if (!hasActiveSubscription) {
+        // Logged in but no active subscription -> redirect to pricing
+        navigate('/pricing', { replace: true });
+      }
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, hasActiveSubscription, navigate]);
 
   if (isLoading) {
     return (
@@ -25,7 +31,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !hasActiveSubscription) {
     return null;
   }
 

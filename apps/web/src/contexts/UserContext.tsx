@@ -21,6 +21,7 @@ interface UserContextType {
   user: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasActiveSubscription: boolean;
   login: (profile: UserProfile) => void;
   logout: () => Promise<void>;
   updateProfile: (profile: Partial<UserProfile>) => void;
@@ -35,6 +36,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = user !== null && supabaseUser !== null;
+
+  // Paid-only model: user must have a paid subscription (not 'free')
+  const hasActiveSubscription = user?.subscriptionTier !== undefined &&
+                                 user?.subscriptionTier !== 'free';
 
   useEffect(() => {
     // Check for active session on mount
@@ -179,7 +184,16 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <UserContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, updateProfile, supabaseUser }}>
+    <UserContext.Provider value={{
+      user,
+      isAuthenticated,
+      isLoading,
+      hasActiveSubscription,
+      login,
+      logout,
+      updateProfile,
+      supabaseUser
+    }}>
       {children}
     </UserContext.Provider>
   );
