@@ -124,20 +124,12 @@ const PricingPage = () => {
                     <Card
                       key={plan.id}
                       className={`relative ${
-                        isCurrentPlan
-                          ? 'border-success border-2 shadow-lg'
-                          : plan.is_popular
+                        plan.is_popular
                           ? 'border-primary shadow-lg scale-105'
                           : 'border-border'
                       }`}
                     >
-                      {isCurrentPlan && (
-                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                          <Badge className="bg-success text-success-foreground">Current Plan</Badge>
-                        </div>
-                      )}
-
-                      {plan.is_popular && !isCurrentPlan && (
+                      {plan.is_popular && (
                         <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                           <Badge className="bg-accent text-accent-foreground">Most Popular</Badge>
                         </div>

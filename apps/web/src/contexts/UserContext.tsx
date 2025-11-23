@@ -66,25 +66,30 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 *,
                 pricing_plans (
                   name,
-                  max_parses_per_month,
-                  max_scores_per_month,
-                  ai_scoring_enabled
+                  slug,
+                  limits
                 )
               `)
               .eq('user_id', session.user.id)
               .eq('status', 'active')
               .maybeSingle();
 
-            if (!error && subscription) {
-              subscriptionTier = subscription.pricing_plans?.name?.toLowerCase() as any || 'free';
+            if (!error && subscription && subscription.pricing_plans) {
+              const plan = subscription.pricing_plans as any;
+              const limits = plan.limits || {};
+
+              // Map plan name to tier
+              subscriptionTier = plan.slug || plan.name?.toLowerCase() || 'free';
+
+              // Extract limits from JSONB
               planLimits = {
-                max_parses: subscription.pricing_plans?.max_parses_per_month || 10,
-                max_scores: subscription.pricing_plans?.max_scores_per_month || 10,
-                ai_scoring_enabled: subscription.pricing_plans?.ai_scoring_enabled || false
+                max_parses: limits.cvs_per_month || limits.max_parses || 10,
+                max_scores: limits.cvs_per_month || limits.max_scores || 10,
+                ai_scoring_enabled: limits.ai_scoring_enabled !== false // Default to true for paid plans
               };
             }
           } catch (err) {
-            console.warn('Could not load subscription data, using free tier defaults');
+            console.warn('Could not load subscription data, using free tier defaults', err);
           }
 
           setUser({
@@ -126,25 +131,30 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               *,
               pricing_plans (
                 name,
-                max_parses_per_month,
-                max_scores_per_month,
-                ai_scoring_enabled
+                slug,
+                limits
               )
             `)
             .eq('user_id', session.user.id)
             .eq('status', 'active')
             .maybeSingle();
 
-          if (!error && subscriptionData) {
-            subscriptionTier = subscriptionData.pricing_plans?.name?.toLowerCase() as any || 'free';
+          if (!error && subscriptionData && subscriptionData.pricing_plans) {
+            const plan = subscriptionData.pricing_plans as any;
+            const limits = plan.limits || {};
+
+            // Map plan name to tier
+            subscriptionTier = plan.slug || plan.name?.toLowerCase() || 'free';
+
+            // Extract limits from JSONB
             planLimits = {
-              max_parses: subscriptionData.pricing_plans?.max_parses_per_month || 10,
-              max_scores: subscriptionData.pricing_plans?.max_scores_per_month || 10,
-              ai_scoring_enabled: subscriptionData.pricing_plans?.ai_scoring_enabled || false
+              max_parses: limits.cvs_per_month || limits.max_parses || 10,
+              max_scores: limits.cvs_per_month || limits.max_scores || 10,
+              ai_scoring_enabled: limits.ai_scoring_enabled !== false // Default to true for paid plans
             };
           }
         } catch (err) {
-          console.warn('Could not load subscription data, using free tier defaults');
+          console.warn('Could not load subscription data, using free tier defaults', err);
         }
 
         setUser({
