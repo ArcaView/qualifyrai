@@ -2,9 +2,9 @@
 // Purpose: Handle Stripe webhook events and update database
 // Deploy: supabase functions deploy stripe-webhook
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from 'https://esm.sh/stripe@17.4.0?target=deno';
 
 serve(async (req) => {
   const signature = req.headers.get('stripe-signature');
@@ -16,7 +16,7 @@ serve(async (req) => {
   try {
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-      apiVersion: '2023-10-16',
+      apiVersion: '2024-12-18.acacia',
       httpClient: Stripe.createFetchHttpClient(),
     });
 
@@ -99,11 +99,28 @@ async function handleSubscriptionUpdate(subscription: any, supabase: any) {
     return;
   }
 
+  // Get the price ID from the subscription
+  const priceId = subscription.items?.data?.[0]?.price?.id;
+
+  let planId = null;
+
+  if (priceId) {
+    // Look up the pricing plan by stripe_price_id_monthly
+    const { data: pricingPlan } = await supabase
+      .from('pricing_plans')
+      .select('id')
+      .eq('stripe_price_id_monthly', priceId)
+      .single();
+
+    planId = pricingPlan?.id;
+  }
+
   // Upsert subscription data
   const { error } = await supabase.from('subscriptions').upsert({
     user_id: userId,
     stripe_customer_id: subscription.customer,
     stripe_subscription_id: subscription.id,
+    plan_id: planId,
     status: subscription.status,
     current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
     current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
@@ -119,7 +136,7 @@ async function handleSubscriptionUpdate(subscription: any, supabase: any) {
     throw error;
   }
 
-  console.log(`Subscription ${subscription.id} updated for user ${userId}`);
+  console.log(`Subscription ${subscription.id} updated for user ${userId}, plan ${planId}`);
 }
 
 // Handle subscription deletion
@@ -209,23 +226,71 @@ async function handleCheckoutCompleted(session: any, supabase: any, stripe: any)
     return;
   }
 
-  // If subscription was created, it will be handled by subscription.created event
-  // But we can ensure the customer ID is stored
-  if (session.customer) {
-    const { error } = await supabase
-      .from('subscriptions')
-      .upsert({
-        user_id: userId,
-        stripe_customer_id: session.customer,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'user_id',
-      });
+  console.log(`Processing checkout completion for user ${userId}`);
 
-    if (error) {
-      console.error('Error storing customer ID:', error);
-    }
+  // Get the subscription ID from the session
+  const subscriptionId = session.subscription;
+
+  if (!subscriptionId) {
+    console.error('No subscription ID in checkout session');
+    return;
   }
 
-  console.log(`Checkout completed for user ${userId}, customer ${session.customer}`);
+  // Fetch the full subscription details from Stripe
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+  if (!subscription) {
+    console.error('Could not retrieve subscription from Stripe:', subscriptionId);
+    return;
+  }
+
+  // Get the price ID from the subscription
+  const priceId = subscription.items?.data?.[0]?.price?.id;
+
+  if (!priceId) {
+    console.error('No price ID found in subscription');
+    return;
+  }
+
+  console.log(`Subscription ${subscriptionId} has price ${priceId}`);
+
+  // Look up the pricing plan by stripe_price_id_monthly
+  const { data: pricingPlan, error: planError } = await supabase
+    .from('pricing_plans')
+    .select('id')
+    .eq('stripe_price_id_monthly', priceId)
+    .single();
+
+  if (planError || !pricingPlan) {
+    console.error('Could not find pricing plan for price ID:', priceId, planError);
+    return;
+  }
+
+  console.log(`Found pricing plan ${pricingPlan.id} for price ${priceId}`);
+
+  // Create the full subscription record
+  const { error } = await supabase
+    .from('subscriptions')
+    .upsert({
+      user_id: userId,
+      stripe_customer_id: session.customer,
+      stripe_subscription_id: subscription.id,
+      plan_id: pricingPlan.id,
+      status: subscription.status,
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      cancel_at_period_end: subscription.cancel_at_period_end || false,
+      canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'user_id',
+    });
+
+  if (error) {
+    console.error('Error creating subscription record:', error);
+    throw error;
+  }
+
+  console.log(`Successfully created subscription record for user ${userId}, plan ${pricingPlan.id}`);
 }
