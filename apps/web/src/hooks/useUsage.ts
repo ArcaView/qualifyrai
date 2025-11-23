@@ -16,7 +16,7 @@ interface UsageLimits {
 }
 
 export function useUsage() {
-  const { supabaseUser } = useUser();
+  const { supabaseUser, user } = useUser();
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [limits, setLimits] = useState<UsageLimits | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,56 +57,17 @@ export function useUsage() {
   }, [supabaseUser?.id]);
 
   /**
-   * Get user's plan limits from subscription
+   * Get user's plan limits from UserContext (already loaded)
+   * This avoids redundant subscription queries that can cause 400 errors
    */
   const getPlanLimits = useCallback(async (): Promise<UsageLimits | null> => {
-    if (!supabaseUser?.id) {
-      return null;
-    }
-
-    try {
-      // Get user's subscription and plan limits
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select(`
-          *,
-          pricing_plans (
-            max_parses_per_month,
-            max_scores_per_month
-          )
-        `)
-        .eq('user_id', supabaseUser.id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (error || !data) {
-        // User doesn't have an active subscription, use free tier limits
-        const limitsData: UsageLimits = {
-          max_parses: 10,
-          max_scores: 10
-        };
-        setLimits(limitsData);
-        return limitsData;
-      }
-
-      const limitsData: UsageLimits = {
-        max_parses: data.pricing_plans.max_parses_per_month || 10,
-        max_scores: data.pricing_plans.max_scores_per_month || 10
-      };
-
-      setLimits(limitsData);
-      return limitsData;
-    } catch (error) {
-      console.error('Error in getPlanLimits:', error);
-      // Return free tier defaults on error
-      const defaultLimits: UsageLimits = {
-        max_parses: 10,
-        max_scores: 10
-      };
-      setLimits(defaultLimits);
-      return defaultLimits;
-    }
-  }, [supabaseUser?.id]);
+    const limitsData: UsageLimits = {
+      max_parses: user?.planLimits?.max_parses || 10,
+      max_scores: user?.planLimits?.max_scores || 10
+    };
+    setLimits(limitsData);
+    return limitsData;
+  }, [user?.planLimits]);
 
   /**
    * Load both usage and limits
