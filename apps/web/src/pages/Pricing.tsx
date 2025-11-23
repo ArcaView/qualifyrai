@@ -6,13 +6,39 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Loader2 } from "lucide-react";
 import { usePricing } from "@/contexts/PricingContext";
 import { supabase } from "@/lib/supabase";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/contexts/UserContext";
 
 const PricingPage = () => {
   const { plans, isLoading, error } = usePricing();
   const { toast } = useToast();
+  const { user, isAuthenticated } = useUser();
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [currentPlanSlug, setCurrentPlanSlug] = useState<string | null>(null);
+
+  // Load user's current plan
+  useEffect(() => {
+    const loadCurrentPlan = async () => {
+      if (!isAuthenticated) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('pricing_plans(slug)')
+        .eq('user_id', session.user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (subscription?.pricing_plans) {
+        setCurrentPlanSlug((subscription.pricing_plans as any).slug);
+      }
+    };
+
+    loadCurrentPlan();
+  }, [isAuthenticated]);
 
   const handleGetStarted = async (priceId: string | null, planName: string) => {
     if (!priceId) {
@@ -91,61 +117,77 @@ const PricingPage = () => {
               </div>
             ) : (
               <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                {plans.map((plan, index) => (
-                  <Card
-                    key={plan.id}
-                    className={`relative ${
-                      plan.is_popular
-                        ? 'border-primary shadow-lg scale-105'
-                        : 'border-border'
-                    }`}
-                  >
-                    {plan.is_popular && (
-                      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                        <Badge className="bg-accent text-accent-foreground">Most Popular</Badge>
-                      </div>
-                    )}
+                {plans.map((plan, index) => {
+                  const isCurrentPlan = currentPlanSlug === plan.slug;
 
-                    <CardHeader>
-                      <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                      <CardDescription className="text-base">{plan.description}</CardDescription>
-                      <div className="mt-4">
-                        <span className="text-4xl font-bold">
-                          £{plan.price_monthly.toFixed(2)}
-                        </span>
-                        <span className="text-muted-foreground">/month</span>
-                      </div>
-                    </CardHeader>
+                  return (
+                    <Card
+                      key={plan.id}
+                      className={`relative ${
+                        isCurrentPlan
+                          ? 'border-success border-2 shadow-lg'
+                          : plan.is_popular
+                          ? 'border-primary shadow-lg scale-105'
+                          : 'border-border'
+                      }`}
+                    >
+                      {isCurrentPlan && (
+                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                          <Badge className="bg-success text-success-foreground">Current Plan</Badge>
+                        </div>
+                      )}
 
-                    <CardContent className="space-y-4">
-                      <Button
-                        onClick={() => handleGetStarted(plan.stripe_price_id_monthly, plan.name)}
-                        disabled={checkoutLoading !== null}
-                        variant={plan.is_popular ? "hero" : "default"}
-                        className="w-full"
-                        size="lg"
-                      >
-                        {checkoutLoading === plan.stripe_price_id_monthly ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          'Get Started'
-                        )}
-                      </Button>
+                      {plan.is_popular && !isCurrentPlan && (
+                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                          <Badge className="bg-accent text-accent-foreground">Most Popular</Badge>
+                        </div>
+                      )}
 
-                      <ul className="space-y-3 pt-4">
-                        {plan.features.map((feature, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <Check className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-                            <span className="text-sm text-muted-foreground">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <CardHeader>
+                        <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                        <CardDescription className="text-base">{plan.description}</CardDescription>
+                        <div className="mt-4">
+                          <span className="text-4xl font-bold">
+                            £{plan.price_monthly.toFixed(2)}
+                          </span>
+                          <span className="text-muted-foreground">/month</span>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="space-y-4">
+                        <Button
+                          onClick={() => handleGetStarted(plan.stripe_price_id_monthly, plan.name)}
+                          disabled={checkoutLoading !== null || isCurrentPlan}
+                          variant={isCurrentPlan ? "outline" : plan.is_popular ? "hero" : "default"}
+                          className="w-full"
+                          size="lg"
+                        >
+                          {isCurrentPlan ? (
+                            'Current Plan'
+                          ) : checkoutLoading === plan.stripe_price_id_monthly ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Processing...
+                            </>
+                          ) : isAuthenticated ? (
+                            'Change Plan'
+                          ) : (
+                            'Get Started'
+                          )}
+                        </Button>
+
+                        <ul className="space-y-3 pt-4">
+                          {plan.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <Check className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+                              <span className="text-sm text-muted-foreground">{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>
