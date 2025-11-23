@@ -41,6 +41,7 @@ import { parseScoreAPI } from "@/lib/api";
 import { validateFile, formatFileSize } from "@/lib/file-validation";
 import { useUsage } from "@/hooks/useUsage";
 import { useUser } from "@/contexts/UserContext";
+import { trackEvent } from "@/lib/analytics";
 
 const ParseCV = () => {
   const { roles, addCandidateToRole, addRole } = useRoles();
@@ -125,6 +126,13 @@ const ParseCV = () => {
 
       // Increment usage after successful parse
       await incrementParseUsage(1);
+
+      // Track analytics event
+      await trackEvent('cv_parsed', {
+        filename: file.name,
+        filesize: file.size,
+        role_id: selectedRole
+      });
 
       // Adapt to actual API structure
       const parsedCandidate = parseResult.candidate || {};
@@ -262,6 +270,14 @@ const ParseCV = () => {
 
       // Increment usage after successful score
       await incrementScoreUsage(1);
+
+      // Track analytics event
+      await trackEvent('candidate_scored', {
+        score: scoreResponse.overall_score,
+        fit: scoreResponse.fit,
+        mode: aiScoringEnabled ? 'llm' : 'baseline',
+        request_id: result.request_id
+      });
 
       toast({
         title: "Scoring Complete",

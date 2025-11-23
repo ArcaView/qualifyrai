@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { parseScoreAPI } from "@/lib/api/parsescore-client";
 import { validateFiles, formatFileSize } from "@/lib/file-validation";
 import { useUsage } from "@/hooks/useUsage";
+import { trackEvent } from "@/lib/analytics";
 
 interface FileWithStatus {
   file: File;
@@ -177,6 +178,12 @@ const BulkParse = () => {
     // Mark all files as processing
     setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const })));
 
+    // Track bulk parse started
+    await trackEvent('bulk_parse_started', {
+      file_count: fileCount,
+      role_id: selectedRole
+    });
+
     try {
       // Call the batch parse API (no scoring)
       const response = await parseScoreAPI.batchParse(files.map(f => f.file));
@@ -258,6 +265,15 @@ const BulkParse = () => {
       if (successCount > 0) {
         await incrementParseUsage(successCount);
       }
+
+      // Track bulk parse completed
+      await trackEvent('bulk_parse_completed', {
+        total_files: files.length,
+        successful: successCount,
+        failed: files.length - successCount,
+        role_id: selectedRole,
+        processing_time_ms: response.processing_time_ms
+      });
 
       toast({
         title: "Bulk Parse Complete",

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { trackEvent } from '@/lib/analytics';
 
 export interface Interview {
   id: string;
@@ -275,6 +276,12 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         role.id === id ? { ...role, ...updates } : role
       ));
 
+      // Track analytics event
+      await trackEvent('role_updated', {
+        role_id: id,
+        updated_fields: Object.keys(updates)
+      });
+
       toast({
         title: 'Role updated',
         description: 'Role has been updated successfully'
@@ -303,6 +310,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (error) throw error;
 
       setRoles(prev => prev.filter(role => role.id !== id));
+
+      // Track analytics event
+      await trackEvent('role_deleted', {
+        role_id: id
+      });
 
       toast({
         title: 'Role deleted',
@@ -403,6 +415,13 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
         return role;
       }));
+
+      // Track analytics event
+      await trackEvent('candidate_added', {
+        role_id: roleId,
+        candidate_id: data.id,
+        candidate_name: candidate.name
+      });
 
       toast({
         title: 'Candidate added',
@@ -776,6 +795,14 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       };
 
       setRoles(prev => [...prev, newRole]);
+
+      // Track analytics event
+      await trackEvent('role_created', {
+        role_id: data.id,
+        title: roleData.title,
+        department: roleData.department,
+        employment_type: roleData.type
+      });
 
       toast({
         title: 'Role created',
