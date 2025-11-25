@@ -63,8 +63,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             const { data: subscription, error } = await supabase
               .from('subscriptions')
               .select(`
-                *,
-                pricing_plans (
+                id,
+                status,
+                pricing_plans!plan_id (
                   name,
                   slug,
                   limits
@@ -87,6 +88,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 max_scores: limits.cvs_per_month || limits.max_scores || 10,
                 ai_scoring_enabled: limits.ai_scoring_enabled !== false // Default to true for paid plans
               };
+            } else if (error) {
+              console.error('Error loading subscription:', error);
             }
           } catch (err) {
             console.warn('Could not load subscription data, using free tier defaults', err);
@@ -128,8 +131,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           const { data: subscriptionData, error } = await supabase
             .from('subscriptions')
             .select(`
-              *,
-              pricing_plans (
+              id,
+              status,
+              pricing_plans!plan_id (
                 name,
                 slug,
                 limits
@@ -152,6 +156,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               max_scores: limits.cvs_per_month || limits.max_scores || 10,
               ai_scoring_enabled: limits.ai_scoring_enabled !== false // Default to true for paid plans
             };
+          } else if (error) {
+            console.error('Error loading subscription:', error);
           }
         } catch (err) {
           console.warn('Could not load subscription data, using free tier defaults', err);

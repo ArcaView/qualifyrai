@@ -25,12 +25,23 @@ const PricingPage = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data: subscription } = await supabase
+      const { data: subscription, error } = await supabase
         .from('subscriptions')
-        .select('pricing_plans(slug)')
+        .select(`
+          id,
+          status,
+          pricing_plans!plan_id (
+            slug
+          )
+        `)
         .eq('user_id', session.user.id)
         .eq('status', 'active')
         .single();
+
+      if (error) {
+        console.error('Error loading current plan:', error);
+        return;
+      }
 
       if (subscription?.pricing_plans) {
         setCurrentPlanSlug((subscription.pricing_plans as any).slug);
