@@ -94,7 +94,9 @@ serve(async (req) => {
     }
 
     // Get return URL from request or use default
-    const returnUrl = `${req.headers.get('origin') || Deno.env.get('APP_URL')}/billing`;
+    const origin = req.headers.get('origin') || Deno.env.get('APP_URL') || 'http://localhost:5173';
+    const successUrl = `${origin}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${origin}/pricing?canceled=true`;
 
     // Create Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -107,8 +109,8 @@ serve(async (req) => {
         },
       ],
       mode: 'subscription',
-      success_url: `${returnUrl}?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${returnUrl}?canceled=true`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
       metadata: {
