@@ -311,16 +311,16 @@ const Overview = () => {
                   <div className="flex justify-between mb-2 text-sm">
                     <span className="text-muted-foreground">CV Parses</span>
                     <span className="font-medium">
-                      {usage?.parses_used || 0} / {limits?.max_parses || 0}
+                      {usage?.parses_used || 0} / {(limits?.max_parses || 0) >= 900000 ? 'Unlimited' : (limits?.max_parses || 0)}
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
                       className="bg-primary h-2 rounded-full transition-all"
                       style={{
-                        width: limits?.max_parses
+                        width: limits?.max_parses && limits.max_parses < 900000
                           ? `${Math.min(((usage?.parses_used || 0) / limits.max_parses) * 100, 100)}%`
-                          : '0%'
+                          : '5%'
                       }}
                     />
                   </div>
@@ -330,16 +330,16 @@ const Overview = () => {
                   <div className="flex justify-between mb-2 text-sm">
                     <span className="text-muted-foreground">Scores Generated</span>
                     <span className="font-medium">
-                      {usage?.scores_used || 0} / {limits?.max_scores || 0}
+                      {usage?.scores_used || 0} / {(limits?.max_scores || 0) >= 900000 ? 'Unlimited' : (limits?.max_scores || 0)}
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div
                       className="bg-accent h-2 rounded-full transition-all"
                       style={{
-                        width: limits?.max_scores
+                        width: limits?.max_scores && limits.max_scores < 900000
                           ? `${Math.min(((usage?.scores_used || 0) / limits.max_scores) * 100, 100)}%`
-                          : '0%'
+                          : '5%'
                       }}
                     />
                   </div>

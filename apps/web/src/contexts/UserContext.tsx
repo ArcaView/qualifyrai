@@ -82,10 +82,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
               // Map plan name to tier
               subscriptionTier = plan.slug || plan.name?.toLowerCase() || 'free';
 
-              // Extract limits from JSONB
+              // Extract limits from JSONB (-1 means unlimited, treat as 999999)
+              const parsesLimit = limits.cvs_per_month || limits.max_parses || 10;
+              const scoresLimit = limits.cvs_per_month || limits.max_scores || 10;
+
               planLimits = {
-                max_parses: limits.cvs_per_month || limits.max_parses || 10,
-                max_scores: limits.cvs_per_month || limits.max_scores || 10,
+                max_parses: parsesLimit === -1 ? 999999 : parsesLimit,
+                max_scores: scoresLimit === -1 ? 999999 : scoresLimit,
                 ai_scoring_enabled: limits.ai_scoring_enabled !== false // Default to true for paid plans
               };
             } else if (error) {
@@ -150,10 +153,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             // Map plan name to tier
             subscriptionTier = plan.slug || plan.name?.toLowerCase() || 'free';
 
-            // Extract limits from JSONB
+            // Extract limits from JSONB (-1 means unlimited, treat as 999999)
+            const parsesLimit = limits.cvs_per_month || limits.max_parses || 10;
+            const scoresLimit = limits.cvs_per_month || limits.max_scores || 10;
+
             planLimits = {
-              max_parses: limits.cvs_per_month || limits.max_parses || 10,
-              max_scores: limits.cvs_per_month || limits.max_scores || 10,
+              max_parses: parsesLimit === -1 ? 999999 : parsesLimit,
+              max_scores: scoresLimit === -1 ? 999999 : scoresLimit,
               ai_scoring_enabled: limits.ai_scoring_enabled !== false // Default to true for paid plans
             };
           } else if (error) {
