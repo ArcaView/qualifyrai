@@ -42,7 +42,8 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
-      throw new Error('User not authenticated');
+      console.error('Auth error:', userError);
+      throw new Error(`User not authenticated: ${userError?.message || 'Invalid token'}`);
     }
 
     // Rate limiting - 10 API key generations per hour per user

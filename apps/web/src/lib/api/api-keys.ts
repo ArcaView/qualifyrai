@@ -27,16 +27,13 @@ export interface GenerateApiKeyResponse {
  */
 export async function generateApiKey(name: string): Promise<GenerateApiKeyResponse> {
   try {
-    // First try to get the current session
-    let session = (await supabase.auth.getSession()).data.session;
+    // Always refresh the session to ensure we have a valid token
+    // This prevents issues with expired tokens
+    const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
 
-    // If no session, try to refresh it
-    if (!session) {
-      const { data, error } = await supabase.auth.refreshSession();
-      if (error || !data.session) {
-        throw new Error("User not authenticated. Please sign in again.");
-      }
-      session = data.session;
+    if (refreshError || !session) {
+      console.error("Session refresh error:", refreshError);
+      throw new Error("Session expired. Please sign in again.");
     }
 
     // Get the Supabase project URL for Edge Function
