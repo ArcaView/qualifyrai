@@ -522,15 +522,15 @@ const DeveloperDashboard = () => {
                   {newlyGeneratedKey}
                 </code>
                 <Button
-                  size="sm"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => {
                     if (newlyGeneratedKey) {
                       copyToClipboard(newlyGeneratedKey, "API Key");
                     }
                   }}
                 >
-                  <Copy className="w-4 h-4 mr-1" />
-                  Copy
+                  <Copy className="w-4 h-4" />
                 </Button>
               </div>
             </div>
