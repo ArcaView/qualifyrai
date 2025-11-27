@@ -17,20 +17,54 @@ import {
   Copy,
   Eye,
   EyeOff,
-  Code2
+  Code2,
+  Loader2
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useUsage } from "@/hooks/useUsage";
+import { fetchApiKeys, generateApiKey, type ApiKey } from "@/lib/api/api-keys";
+import { formatDistanceToNow } from "date-fns";
 
 const DeveloperDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [showApiKey, setShowApiKey] = useState(false);
+  const { usage, limits, loading: usageLoading, loadUsageData, remainingParses, remainingScores } = useUsage();
+
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(true);
+  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [showKeyDialog, setShowKeyDialog] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
-  const apiKey = "ps_live_1234567890abcdef1234567890abcdef";
+  const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<string | null>(null);
+  const [showNewKeyDialog, setShowNewKeyDialog] = useState(false);
+
+  // Load API keys and usage data on mount
+  useEffect(() => {
+    loadKeys();
+    loadUsageData();
+  }, [loadUsageData]);
+
+  const loadKeys = async () => {
+    setLoadingKeys(true);
+    const keys = await fetchApiKeys();
+    setApiKeys(keys);
+    setLoadingKeys(false);
+  };
+
+  const toggleKeyVisibility = (keyId: string) => {
+    setVisibleKeys(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(keyId)) {
+        newSet.delete(keyId);
+      } else {
+        newSet.add(keyId);
+      }
+      return newSet;
+    });
+  };
 
   const copyToClipboard = (text: string, keyName: string = "API Key") => {
     navigator.clipboard.writeText(text);
@@ -58,16 +92,23 @@ const DeveloperDashboard = () => {
     setIsGeneratingKey(true);
 
     try {
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await generateApiKey(newKeyName);
 
-      toast({
-        title: "API Key Generated",
-        description: "Your new API key has been created. Make sure to copy it now.",
-      });
+      if (result.success && result.apiKey) {
+        setNewlyGeneratedKey(result.apiKey);
+        setShowKeyDialog(false);
+        setShowNewKeyDialog(true);
+        setNewKeyName("");
 
-      setShowKeyDialog(false);
-      setNewKeyName("");
+        // Refresh API keys list
+        await loadKeys();
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to generate API key. Please try again.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -100,11 +141,13 @@ const DeveloperDashboard = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>API Calls This Month</CardDescription>
-              <CardTitle className="text-3xl">247</CardTitle>
+              <CardTitle className="text-3xl">
+                {usageLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (usage?.api_calls_made || 0)}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xs text-muted-foreground">
-                753 remaining in plan
+                {usageLoading ? '...' : `${limits?.max_parses || 0} total in plan`}
               </div>
             </CardContent>
           </Card>
@@ -112,11 +155,13 @@ const DeveloperDashboard = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Parses</CardDescription>
-              <CardTitle className="text-3xl">156</CardTitle>
+              <CardTitle className="text-3xl">
+                {usageLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (usage?.parses_used || 0)}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xs text-muted-foreground">
-                844 remaining
+                {usageLoading ? '...' : `${remainingParses()} remaining`}
               </div>
             </CardContent>
           </Card>
@@ -124,24 +169,27 @@ const DeveloperDashboard = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Scores</CardDescription>
-              <CardTitle className="text-3xl">91</CardTitle>
+              <CardTitle className="text-3xl">
+                {usageLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (usage?.scores_used || 0)}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-xs text-muted-foreground">
-                409 remaining
+                {usageLoading ? '...' : `${remainingScores()} remaining`}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>Avg Response Time</CardDescription>
-              <CardTitle className="text-3xl">1.8s</CardTitle>
+              <CardDescription>Active API Keys</CardDescription>
+              <CardTitle className="text-3xl">
+                {loadingKeys ? <Loader2 className="w-6 h-6 animate-spin" /> : apiKeys.filter(k => k.is_active).length}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-1 text-xs text-success">
-                <CheckCircle2 className="w-3 h-3" />
-                Excellent
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                {loadingKeys ? '...' : `${apiKeys.length} total keys`}
               </div>
             </CardContent>
           </Card>
@@ -176,40 +224,61 @@ const DeveloperDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Production Key */}
-                  <div className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-semibold mb-1">Production Key</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Created on Nov 1, 2025 • Last used 2 hours ago
-                        </p>
-                      </div>
-                      <Badge className="bg-success/10 text-success border-success/20">
-                        Active
-                      </Badge>
+                  {/* API Keys List */}
+                  {loadingKeys ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin" />
                     </div>
+                  ) : apiKeys.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Key className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                      <h3 className="font-semibold mb-1">No API Keys Yet</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Create your first API key to start using the API
+                      </p>
+                      <Button size="sm" onClick={handleGenerateKeyClick}>
+                        Generate API Key
+                      </Button>
+                    </div>
+                  ) : (
+                    apiKeys.map((key) => (
+                      <div key={key.id} className="border rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold mb-1">{key.name}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Created {formatDistanceToNow(new Date(key.created_at), { addSuffix: true })}
+                              {key.last_used_at && ` • Last used ${formatDistanceToNow(new Date(key.last_used_at), { addSuffix: true })}`}
+                            </p>
+                          </div>
+                          <Badge className={key.is_active ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground"}>
+                            {key.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
 
-                    <div className="flex items-center gap-2 bg-code rounded p-3">
-                      <code className="flex-1 text-sm font-mono text-code-foreground">
-                        {showApiKey ? apiKey : apiKey.slice(0, 12) + '••••••••••••••••••••'}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                      >
-                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(apiKey, "Production Key")}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
+                        <div className="flex items-center gap-2 bg-code rounded p-3">
+                          <code className="flex-1 text-sm font-mono text-code-foreground">
+                            {key.key_prefix}{'••••••••••••••••••••••••••••••••••••••'}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled
+                            title="Full key is not stored and cannot be retrieved"
+                          >
+                            <EyeOff className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(key.key_prefix, key.name)}
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
 
                   {/* Info Box */}
                   <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
@@ -218,7 +287,7 @@ const DeveloperDashboard = () => {
                       <p className="font-medium mb-1">Keep your API keys secure</p>
                       <p className="text-muted-foreground">
                         Never share your API keys publicly or commit them to version control.
-                        Use environment variables in your applications.
+                        Use environment variables in your applications. Keys are only shown once upon generation.
                       </p>
                     </div>
                   </div>
@@ -240,51 +309,77 @@ const DeveloperDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  {/* Usage Bars */}
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm font-medium">Parses</span>
-                      <span className="text-sm text-muted-foreground">156 / 1,000</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-primary h-2 rounded-full" style={{ width: '15.6%' }} />
-                    </div>
+                {usageLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin" />
                   </div>
-
-                  <div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm font-medium">Scores</span>
-                      <span className="text-sm text-muted-foreground">91 / 500</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-accent h-2 rounded-full" style={{ width: '18.2%' }} />
-                    </div>
-                  </div>
-
-                  {/* Quick Stats */}
-                  <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 className="w-5 h-5 text-success" />
+                ) : (
+                  <div className="space-y-6">
+                    {/* Usage Bars */}
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-medium">Parses</span>
+                        <span className="text-sm text-muted-foreground">
+                          {usage?.parses_used || 0} / {limits?.max_parses && limits.max_parses >= 900000 ? 'Unlimited' : (limits?.max_parses || 0)}
+                        </span>
                       </div>
-                      <div>
-                        <p className="font-medium">99.2% Success Rate</p>
-                        <p className="text-sm text-muted-foreground">245 successful / 247 total</p>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className="bg-primary h-2 rounded-full"
+                          style={{
+                            width: limits?.max_parses && limits.max_parses < 900000
+                              ? `${Math.min(((usage?.parses_used || 0) / limits.max_parses) * 100, 100)}%`
+                              : '5%'
+                          }}
+                        />
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Clock className="w-5 h-5 text-primary" />
+                    <div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm font-medium">Scores</span>
+                        <span className="text-sm text-muted-foreground">
+                          {usage?.scores_used || 0} / {limits?.max_scores && limits.max_scores >= 900000 ? 'Unlimited' : (limits?.max_scores || 0)}
+                        </span>
                       </div>
-                      <div>
-                        <p className="font-medium">1.8s Avg Response</p>
-                        <p className="text-sm text-muted-foreground">Well below 2.5s target</p>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className="bg-accent h-2 rounded-full"
+                          style={{
+                            width: limits?.max_scores && limits.max_scores < 900000
+                              ? `${Math.min(((usage?.scores_used || 0) / limits.max_scores) * 100, 100)}%`
+                              : '5%'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Stats */}
+                    <div className="grid md:grid-cols-2 gap-4 pt-4 border-t">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <BarChart3 className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium">API Calls This Month</p>
+                          <p className="text-sm text-muted-foreground">{usage?.api_calls_made || 0} total calls</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                          <Clock className="w-5 h-5 text-accent" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Current Period</p>
+                          <p className="text-sm text-muted-foreground">
+                            {usage?.period_start ? new Date(usage.period_start).toLocaleDateString() : 'N/A'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -402,6 +497,61 @@ const DeveloperDashboard = () => {
               disabled={isGeneratingKey}
             >
               {isGeneratingKey ? "Generating..." : "Generate Key"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Show New API Key Dialog */}
+      <Dialog open={showNewKeyDialog} onOpenChange={setShowNewKeyDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-success" />
+              API Key Generated Successfully
+            </DialogTitle>
+            <DialogDescription>
+              Copy this API key now - you won't be able to see it again!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-muted/50 rounded-lg border-2 border-primary/20">
+              <Label className="text-xs text-muted-foreground mb-2 block">Your API Key</Label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-sm font-mono break-all bg-code p-3 rounded text-code-foreground">
+                  {newlyGeneratedKey}
+                </code>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (newlyGeneratedKey) {
+                      copyToClipboard(newlyGeneratedKey, "API Key");
+                    }
+                  }}
+                >
+                  <Copy className="w-4 h-4 mr-1" />
+                  Copy
+                </Button>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium text-warning mb-1">Important Security Notice</p>
+                <p className="text-muted-foreground text-xs">
+                  Store this key securely. It will not be displayed again. Anyone with this key can access your account.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowNewKeyDialog(false);
+                setNewlyGeneratedKey(null);
+              }}
+            >
+              I've Saved My Key
             </Button>
           </DialogFooter>
         </DialogContent>
