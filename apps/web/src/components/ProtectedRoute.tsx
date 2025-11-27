@@ -17,8 +17,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         // Not logged in -> redirect to login
         navigate('/auth?tab=login', { replace: true });
       } else if (!hasActiveSubscription) {
-        // Logged in but no active subscription -> redirect to pricing
-        navigate('/pricing', { replace: true });
+        // Logged in but no active subscription -> redirect to complete signup
+        navigate('/complete-signup', { replace: true });
       }
     }
   }, [isAuthenticated, isLoading, hasActiveSubscription, navigate]);

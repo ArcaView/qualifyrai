@@ -35,6 +35,7 @@ import FeatureRequests from "./pages/FeatureRequests";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import ParseScoreTest from "./pages/ParseScoreTest";
+import CompleteSignup from "./pages/CompleteSignup";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const AppContent = () => {
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/docs" element={<Docs />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/complete-signup" element={<CompleteSignup />} />
           <Route path="/dashboard" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
           <Route path="/dashboard/parse" element={<ProtectedRoute><ParseCV /></ProtectedRoute>} />
           <Route path="/dashboard/bulk-parse" element={<ProtectedRoute><BulkParse /></ProtectedRoute>} />

@@ -95,8 +95,8 @@ serve(async (req) => {
 
     // Get return URL from request or use default
     const origin = req.headers.get('origin') || Deno.env.get('APP_URL') || 'http://localhost:5173';
-    const successUrl = `${origin}/dashboard?success=true&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${origin}/pricing?canceled=true`;
+    const successUrl = `${origin}/complete-signup?success=true&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${origin}/complete-signup?canceled=true`;
 
     // Create Checkout Session
     const session = await stripe.checkout.sessions.create({
