@@ -27,12 +27,16 @@ export interface GenerateApiKeyResponse {
  */
 export async function generateApiKey(name: string): Promise<GenerateApiKeyResponse> {
   try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    // First try to get the current session
+    let session = (await supabase.auth.getSession()).data.session;
 
+    // If no session, try to refresh it
     if (!session) {
-      throw new Error("User not authenticated");
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data.session) {
+        throw new Error("User not authenticated. Please sign in again.");
+      }
+      session = data.session;
     }
 
     // Get the Supabase project URL for Edge Function
@@ -49,8 +53,8 @@ export async function generateApiKey(name: string): Promise<GenerateApiKeyRespon
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to generate API key");
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      throw new Error(errorData.error || `Failed to generate API key (${response.status})`);
     }
 
     const data: GenerateApiKeyResponse = await response.json();
