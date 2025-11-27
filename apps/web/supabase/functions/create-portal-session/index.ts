@@ -2,9 +2,9 @@
 // Purpose: Create a Stripe Customer Portal session for subscription management
 // Deploy: supabase functions deploy create-portal-session
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from 'https://esm.sh/stripe@17.4.0?target=deno';
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 serve(async (req) => {
@@ -57,12 +57,13 @@ serve(async (req) => {
 
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
-      apiVersion: '2023-10-16',
+      apiVersion: '2024-12-18.acacia',
       httpClient: Stripe.createFetchHttpClient(),
     });
 
     // Get return URL from request or use default
-    const returnUrl = `${req.headers.get('origin') || Deno.env.get('APP_URL')}/billing`;
+    const origin = req.headers.get('origin') || Deno.env.get('APP_URL') || 'http://localhost:5173';
+    const returnUrl = `${origin}/dashboard/billing`;
 
     // Create Customer Portal Session
     const session = await stripe.billingPortal.sessions.create({
