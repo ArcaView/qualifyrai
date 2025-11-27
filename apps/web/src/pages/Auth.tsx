@@ -110,7 +110,7 @@ const Auth = () => {
             lastName: signUpData.lastName,
             company: signUpData.company,
           },
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/complete-signup`,
         },
       });
 
@@ -119,20 +119,32 @@ const Auth = () => {
       }
 
       if (data.user) {
-        toast({
-          title: "Verification Email Sent!",
-          description: "Please check your email to verify your account before logging in.",
-        });
+        // Check if email confirmation is required
+        if (data.session) {
+          // User is auto-confirmed (no email verification needed)
+          // Redirect immediately to complete signup
+          toast({
+            title: "Account Created!",
+            description: "Complete your payment to access the dashboard.",
+          });
+          navigate('/complete-signup');
+        } else {
+          // Email verification required
+          toast({
+            title: "Verification Email Sent!",
+            description: "Please check your email to verify your account before logging in.",
+          });
 
-        // Clear the form
-        setSignUpData({
-          firstName: "",
-          lastName: "",
-          email: "",
-          company: "",
-          password: "",
-          confirmPassword: "",
-        });
+          // Clear the form
+          setSignUpData({
+            firstName: "",
+            lastName: "",
+            email: "",
+            company: "",
+            password: "",
+            confirmPassword: "",
+          });
+        }
       }
     } catch (error) {
       const authError = error as AuthError;

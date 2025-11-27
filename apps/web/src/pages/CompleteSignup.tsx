@@ -7,12 +7,14 @@ import { Check, Loader2, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
+import { usePricing } from "@/contexts/PricingContext";
 
 const CompleteSignup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, hasActiveSubscription, isLoading: userLoading } = useUser();
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const { plans, isLoading: plansLoading } = usePricing();
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
 
   // Check if user already has a subscription
@@ -69,8 +71,17 @@ const CompleteSignup = () => {
     verifyPayment();
   }, [toast]);
 
-  const handleCompletePayment = async () => {
-    setCheckoutLoading(true);
+  const handleCompletePayment = async (priceId: string | null, planName: string) => {
+    if (!priceId) {
+      toast({
+        title: "Configuration Error",
+        description: "This plan is not yet configured. Please contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCheckoutLoading(priceId);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -78,9 +89,6 @@ const CompleteSignup = () => {
       if (!session) {
         throw new Error('Not authenticated');
       }
-
-      // Get the Starter plan price ID
-      const priceId = 'price_1SRXkyHR4O1dB10VVNfWQVsr';
 
       // Create checkout session
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
@@ -102,7 +110,7 @@ const CompleteSignup = () => {
         description: err.message || "Failed to start checkout. Please try again.",
         variant: "destructive",
       });
-      setCheckoutLoading(false);
+      setCheckoutLoading(null);
     }
   };
 
@@ -121,84 +129,89 @@ const CompleteSignup = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/5 to-background p-4">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background p-4 py-12">
+      <div className="container mx-auto max-w-6xl">
+        <div className="text-center mb-12">
           <Badge className="mb-4 bg-primary/10 text-primary border-primary/20">One More Step</Badge>
-          <h1 className="text-4xl font-bold mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
             Complete Your Account Setup
           </h1>
           <p className="text-xl text-muted-foreground">
-            Get instant access to AI-powered candidate screening
+            Choose your plan and get instant access to AI-powered candidate screening
           </p>
         </div>
 
-        <Card className="border-primary shadow-lg">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-3xl">Starter Plan</CardTitle>
-                <CardDescription className="text-lg mt-2">
-                  Perfect for getting started with AI recruitment
-                </CardDescription>
-              </div>
-              <Badge className="bg-accent text-accent-foreground">Most Popular</Badge>
-            </div>
-            <div className="mt-6">
-              <span className="text-5xl font-bold">£49.99</span>
-              <span className="text-muted-foreground text-xl">/month</span>
-            </div>
-          </CardHeader>
+        {plansLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {plans.map((plan) => (
+              <Card
+                key={plan.id}
+                className={`relative ${
+                  plan.is_popular
+                    ? 'border-primary shadow-lg scale-105'
+                    : 'border-border'
+                }`}
+              >
+                {plan.is_popular && (
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-accent text-accent-foreground">Most Popular</Badge>
+                  </div>
+                )}
 
-          <CardContent className="space-y-6">
-            <Button
-              onClick={handleCompletePayment}
-              disabled={checkoutLoading}
-              variant="hero"
-              className="w-full"
-              size="lg"
-            >
-              {checkoutLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Redirecting to payment...
-                </>
-              ) : (
-                <>
-                  Complete Payment
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </Button>
+                <CardHeader>
+                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                  <CardDescription className="text-base">{plan.description}</CardDescription>
+                  <div className="mt-4">
+                    <span className="text-4xl font-bold">
+                      £{plan.price_monthly.toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground">/month</span>
+                  </div>
+                </CardHeader>
 
-            <div className="pt-4">
-              <h3 className="font-semibold mb-4 text-lg">What's included:</h3>
-              <ul className="space-y-3">
-                {[
-                  "100 CV parses per month",
-                  "AI-powered candidate matching",
-                  "Advanced scoring algorithms",
-                  "Role-based filtering",
-                  "Email support",
-                  "Basic analytics dashboard"
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-                    <span className="text-muted-foreground">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                <CardContent className="space-y-4">
+                  <Button
+                    onClick={() => handleCompletePayment(plan.stripe_price_id_monthly, plan.name)}
+                    disabled={checkoutLoading !== null}
+                    variant={plan.is_popular ? "hero" : "default"}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {checkoutLoading === plan.stripe_price_id_monthly ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Get Started
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
 
-            <div className="pt-4 border-t">
-              <p className="text-sm text-muted-foreground text-center">
-                Secure payment powered by Stripe • Cancel anytime
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                  <ul className="space-y-3 pt-4">
+                    {plan.features.map((feature, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <Check className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+                        <span className="text-sm text-muted-foreground">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-        <div className="text-center mt-6">
+        <div className="text-center mt-8">
+          <p className="text-sm text-muted-foreground mb-4">
+            Secure payment powered by Stripe • Cancel anytime
+          </p>
           <Button
             variant="ghost"
             onClick={() => navigate('/auth')}
