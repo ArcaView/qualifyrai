@@ -17,11 +17,14 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Get authorization header
+    // Get authorization header and extract JWT token
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
     }
+
+    // Extract the JWT token from "Bearer <token>"
+    const token = authHeader.replace('Bearer ', '');
 
     // Create Supabase client with user's JWT
     const supabaseClient = createClient(
@@ -34,11 +37,11 @@ serve(async (req) => {
       }
     );
 
-    // Get authenticated user
+    // Get authenticated user - IMPORTANT: Pass the token explicitly
     const {
       data: { user },
       error: userError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseClient.auth.getUser(token);
 
     if (userError || !user) {
       throw new Error('User not authenticated');
