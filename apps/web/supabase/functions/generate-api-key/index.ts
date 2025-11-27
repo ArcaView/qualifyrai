@@ -20,14 +20,28 @@ serve(async (req) => {
   try {
     // Get authorization header
     const authHeader = req.headers.get('Authorization');
+    console.log('[Edge Function] Auth header present:', !!authHeader);
+    console.log('[Edge Function] Auth header (first 30 chars):', authHeader?.substring(0, 30) + '...');
+
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
+    // Check environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    console.log('[Edge Function] SUPABASE_URL:', supabaseUrl);
+    console.log('[Edge Function] SUPABASE_ANON_KEY present:', !!supabaseAnonKey);
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error(`Missing environment variables: URL=${!!supabaseUrl}, AnonKey=${!!supabaseAnonKey}`);
+    }
+
     // Create Supabase client with user's JWT
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseUrl,
+      supabaseAnonKey,
       {
         global: {
           headers: { Authorization: authHeader },
@@ -35,16 +49,22 @@ serve(async (req) => {
       }
     );
 
+    console.log('[Edge Function] Supabase client created, calling getUser()');
+
     // Get authenticated user
     const {
       data: { user },
       error: userError,
     } = await supabaseClient.auth.getUser();
 
+    console.log('[Edge Function] getUser() result - user:', !!user, 'error:', userError);
+
     if (userError || !user) {
-      console.error('Auth error:', userError);
+      console.error('[Edge Function] Auth error details:', JSON.stringify(userError, null, 2));
       throw new Error(`User not authenticated: ${userError?.message || 'Invalid token'}`);
     }
+
+    console.log('[Edge Function] User authenticated successfully:', user.id);
 
     // Rate limiting - 10 API key generations per hour per user
     const rateLimitId = getRateLimitIdentifier(req, user.id);

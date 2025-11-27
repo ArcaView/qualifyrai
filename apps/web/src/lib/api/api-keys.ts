@@ -50,6 +50,8 @@ export async function generateApiKey(name: string): Promise<GenerateApiKeyRespon
     const functionUrl = `${supabaseUrl}/functions/v1/generate-api-key`;
 
     console.log("[API Keys] Calling:", functionUrl);
+    console.log("[API Keys] Token (first 20 chars):", session.access_token.substring(0, 20) + "...");
+    console.log("[API Keys] Request body:", { name });
 
     // Add timeout to prevent hanging indefinitely
     const controller = new AbortController();
