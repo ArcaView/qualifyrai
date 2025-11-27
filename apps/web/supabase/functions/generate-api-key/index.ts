@@ -4,9 +4,44 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 import { getCorsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 import { checkRateLimit, getRateLimitIdentifier, createRateLimitResponse, RATE_LIMITS } from "../_shared/rate-limit.ts";
+
+// Hash API key using PBKDF2 (compatible with Deno Deploy)
+async function hashApiKey(apiKey: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(apiKey);
+
+  // Generate a random salt
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  // Import the key material
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+
+  // Derive a key using PBKDF2
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+
+  // Convert to base64 format: salt$hash
+  const saltB64 = btoa(String.fromCharCode(...salt));
+  const hashB64 = btoa(String.fromCharCode(...new Uint8Array(derivedBits)));
+
+  return `${saltB64}$${hashB64}`;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -112,9 +147,8 @@ serve(async (req) => {
     const apiKey = `qfy_live_${randomString}`;
     const keyPrefix = apiKey.substring(0, 12); // First 12 chars for display
 
-    // Hash the API key using bcrypt
-    const salt = await bcrypt.genSalt(10);
-    const keyHash = await bcrypt.hash(apiKey, salt);
+    // Hash the API key using PBKDF2
+    const keyHash = await hashApiKey(apiKey);
 
     // Store hashed key in database
     const { data, error } = await supabaseClient
