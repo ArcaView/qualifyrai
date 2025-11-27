@@ -158,6 +158,7 @@ serve(async (req) => {
         key_prefix: keyPrefix,
         key_hash: keyHash,
         name: sanitizedName,
+        environment: 'live', // All API keys are for live environment
         is_active: true,
       })
       .select()

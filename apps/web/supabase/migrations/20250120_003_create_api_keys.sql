@@ -7,12 +7,15 @@ CREATE TABLE IF NOT EXISTS api_keys (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   key_prefix TEXT NOT NULL, -- e.g., 'qfy_live_abc' (first 12 chars for display)
-  key_hash TEXT NOT NULL, -- bcrypt hash of the full key
-  name TEXT, -- Optional user-defined name like "Production Key"
+  key_hash TEXT NOT NULL, -- PBKDF2 hash of the full key
+  name TEXT NOT NULL, -- User-defined name like "Production Key"
+  environment TEXT NOT NULL CHECK (environment IN ('live', 'test')), -- 'live' or 'test'
   last_used_at TIMESTAMP WITH TIME ZONE,
+  usage_count INTEGER DEFAULT 0,
   expires_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(key_hash)
 );
 
 -- Create indexes for performance
@@ -85,4 +88,5 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Add comment
 COMMENT ON TABLE api_keys IS 'Stores hashed API keys for user authentication. Full keys are NEVER stored in plain text.';
 COMMENT ON COLUMN api_keys.key_prefix IS 'First 12 characters of key for display purposes (e.g., "qfy_live_abc")';
-COMMENT ON COLUMN api_keys.key_hash IS 'bcrypt hash of the full API key. Used for authentication.';
+COMMENT ON COLUMN api_keys.key_hash IS 'PBKDF2 hash of the full API key. Used for authentication.';
+COMMENT ON COLUMN api_keys.environment IS 'Environment type: "live" for production keys, "test" for testing keys.';
