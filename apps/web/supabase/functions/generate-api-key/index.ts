@@ -18,7 +18,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    // Get authorization header
+    // Get authorization header and extract JWT token
     const authHeader = req.headers.get('Authorization');
     console.log('[Edge Function] Auth header present:', !!authHeader);
     console.log('[Edge Function] Auth header (first 30 chars):', authHeader?.substring(0, 30) + '...');
@@ -26,6 +26,10 @@ serve(async (req) => {
     if (!authHeader) {
       throw new Error('No authorization header');
     }
+
+    // Extract the JWT token from "Bearer <token>"
+    const token = authHeader.replace('Bearer ', '');
+    console.log('[Edge Function] Extracted token (first 20 chars):', token.substring(0, 20) + '...');
 
     // Check environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -38,7 +42,7 @@ serve(async (req) => {
       throw new Error(`Missing environment variables: URL=${!!supabaseUrl}, AnonKey=${!!supabaseAnonKey}`);
     }
 
-    // Create Supabase client with user's JWT
+    // Create Supabase client
     const supabaseClient = createClient(
       supabaseUrl,
       supabaseAnonKey,
@@ -49,13 +53,13 @@ serve(async (req) => {
       }
     );
 
-    console.log('[Edge Function] Supabase client created, calling getUser()');
+    console.log('[Edge Function] Supabase client created, calling getUser() with token');
 
-    // Get authenticated user
+    // Get authenticated user - IMPORTANT: Pass the token explicitly
     const {
       data: { user },
       error: userError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseClient.auth.getUser(token);
 
     console.log('[Edge Function] getUser() result - user:', !!user, 'error:', userError);
 
