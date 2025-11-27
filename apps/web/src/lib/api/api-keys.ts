@@ -27,37 +27,69 @@ export interface GenerateApiKeyResponse {
  */
 export async function generateApiKey(name: string): Promise<GenerateApiKeyResponse> {
   try {
-    // Always refresh the session to ensure we have a valid token
-    // This prevents issues with expired tokens
-    const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+    console.log("[API Keys] Starting API key generation...");
 
-    if (refreshError || !session) {
-      console.error("Session refresh error:", refreshError);
-      throw new Error("Session expired. Please sign in again.");
+    // Get current session first (faster than refresh)
+    console.log("[API Keys] Getting current session...");
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
+      console.error("[API Keys] No session found, attempting refresh...");
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+
+      if (refreshError || !refreshedSession) {
+        console.error("[API Keys] Session refresh error:", refreshError);
+        throw new Error("Session expired. Please sign in again.");
+      }
     }
+
+    console.log("[API Keys] Session validated, calling Edge Function...");
 
     // Get the Supabase project URL for Edge Function
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const functionUrl = `${supabaseUrl}/functions/v1/generate-api-key`;
 
-    const response = await fetch(functionUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ name }),
-    });
+    console.log("[API Keys] Calling:", functionUrl);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-      throw new Error(errorData.error || `Failed to generate API key (${response.status})`);
+    // Add timeout to prevent hanging indefinitely
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    try {
+      const response = await fetch(functionUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ name }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log("[API Keys] Response status:", response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        console.error("[API Keys] Error response:", errorData);
+        throw new Error(errorData.error || `Failed to generate API key (${response.status})`);
+      }
+
+      const data: GenerateApiKeyResponse = await response.json();
+      console.log("[API Keys] API key generated successfully");
+      return data;
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+
+      if (fetchError.name === 'AbortError') {
+        console.error("[API Keys] Request timed out after 30 seconds");
+        throw new Error("Request timed out. Please try again.");
+      }
+      throw fetchError;
     }
-
-    const data: GenerateApiKeyResponse = await response.json();
-    return data;
   } catch (error) {
-    console.error("Error generating API key:", error);
+    console.error("[API Keys] Error generating API key:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to generate API key",
