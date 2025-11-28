@@ -66,7 +66,7 @@ const Dashboard = () => {
                 </p>
               </div>
               <Badge className="bg-success/10 text-success border-success/20">
-                {user?.subscription?.plan?.name || 'Starter'} Plan • Active
+                {user?.subscriptionTier || 'Free'} Plan • Active
               </Badge>
             </div>
           </div>

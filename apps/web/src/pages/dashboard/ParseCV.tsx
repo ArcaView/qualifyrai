@@ -33,6 +33,8 @@ import {
   Target,
   Plus,
   Briefcase,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRoles } from "@/contexts/RolesContext";
@@ -431,7 +433,20 @@ const ParseCV = () => {
               </div>
 
               <div className="space-y-2 pt-4 border-t">
-                <Label htmlFor="job-description">Job Description (Optional)</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="job-description" className="flex items-center gap-2">
+                    Job Description
+                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      {user?.planLimits?.ai_scoring_enabled ? 'AI Scoring Ready' : 'For Scoring'}
+                    </Badge>
+                  </Label>
+                  {!user?.planLimits?.ai_scoring_enabled && (
+                    <Badge variant="secondary" className="text-xs">
+                      Basic scoring only
+                    </Badge>
+                  )}
+                </div>
                 <Textarea
                   id="job-description"
                   placeholder="Paste the job description here to score the candidate against the role..."
@@ -655,28 +670,119 @@ const ParseCV = () => {
 
                   <TabsContent value="score" className="space-y-4 mt-4">
                     {!jobDescription && (
-                      <div className="text-center py-12 text-muted-foreground">
-                        <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>Add a job description to score this candidate</p>
-                        <p className="text-sm mt-1">Scroll up to the upload section to add job requirements</p>
+                      <div className="space-y-4">
+                        <Card className="border-muted">
+                          <CardHeader className="text-center pb-3">
+                            <Target className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                            <CardTitle>Score This Candidate</CardTitle>
+                            <CardDescription>
+                              Add a job description above to get an AI-powered match score
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                              <div className="flex items-start gap-2">
+                                <CheckCircle2 className="w-4 h-4 mt-0.5 text-success" />
+                                <span>Skills Match Analysis</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <CheckCircle2 className="w-4 h-4 mt-0.5 text-success" />
+                                <span>Experience Relevance</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <CheckCircle2 className="w-4 h-4 mt-0.5 text-success" />
+                                <span>Education Quality</span>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <CheckCircle2 className="w-4 h-4 mt-0.5 text-success" />
+                                <span>Career Progression</span>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => {
+                                document.getElementById('job-description')?.focus();
+                              }}
+                            >
+                              <ArrowRight className="w-4 h-4 mr-2" />
+                              Add Job Description
+                            </Button>
+                          </CardContent>
+                        </Card>
+
+                        {!user?.planLimits?.ai_scoring_enabled && (
+                          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
+                            <CardHeader>
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-primary" />
+                                <CardTitle>Unlock AI-Powered Scoring</CardTitle>
+                              </div>
+                              <CardDescription>
+                                Get detailed insights with our advanced AI scoring engine
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              <div className="space-y-2 text-sm">
+                                <div className="flex items-start gap-2">
+                                  <Sparkles className="w-4 h-4 mt-0.5 text-primary" />
+                                  <span><strong>Deep skills analysis</strong> with AI-generated rationale</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <Sparkles className="w-4 h-4 mt-0.5 text-primary" />
+                                  <span><strong>Contextual experience matching</strong> beyond keywords</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <Sparkles className="w-4 h-4 mt-0.5 text-primary" />
+                                  <span><strong>Intelligent recommendations</strong> for interview focus areas</span>
+                                </div>
+                              </div>
+                              <Button className="w-full" onClick={() => window.location.href = '/pricing'}>
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                Upgrade to Professional
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        )}
                       </div>
                     )}
 
                     {jobDescription && !scoreResult && (
-                      <div className="text-center py-8">
-                        <Button onClick={handleScore} disabled={scoring} size="lg">
-                          {scoring ? (
-                            <>
-                              <CheckCircle2 className="w-4 h-4 mr-2 animate-spin" />
-                              Scoring...
-                            </>
-                          ) : (
-                            <>
-                              <Target className="w-4 h-4 mr-2" />
-                              Score Candidate
-                            </>
-                          )}
-                        </Button>
+                      <div className="space-y-4">
+                        <Card className="border-muted">
+                          <CardContent className="pt-6 text-center">
+                            <div className="flex items-center justify-center gap-2 mb-4">
+                              <Badge variant={user?.planLimits?.ai_scoring_enabled ? "default" : "secondary"}>
+                                {user?.planLimits?.ai_scoring_enabled ? (
+                                  <>
+                                    <Sparkles className="w-3 h-3 mr-1" />
+                                    AI-Powered Scoring
+                                  </>
+                                ) : (
+                                  'Basic Scoring'
+                                )}
+                              </Badge>
+                            </div>
+                            <Button onClick={handleScore} disabled={scoring} size="lg">
+                              {scoring ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Scoring...
+                                </>
+                              ) : (
+                                <>
+                                  <Target className="w-4 h-4 mr-2" />
+                                  Score Candidate
+                                </>
+                              )}
+                            </Button>
+                            {user?.planLimits?.ai_scoring_enabled && (
+                              <p className="text-xs text-muted-foreground mt-3">
+                                Using AI to analyze skills, experience, and role fit
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
                       </div>
                     )}
 
