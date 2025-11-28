@@ -104,7 +104,7 @@ serve(async (req) => {
 
     console.log(`Found pricing plan: ${pricingPlan.slug} (${pricingPlan.id})`);
 
-    // Create the subscription record
+    // Create the subscription record (or update if customer already exists)
     const { error: insertError } = await supabaseClient
       .from('subscriptions')
       .upsert({
@@ -120,7 +120,8 @@ serve(async (req) => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'stripe_subscription_id',
+        onConflict: 'stripe_customer_id',
+        ignoreDuplicates: false,
       });
 
     if (insertError) {
