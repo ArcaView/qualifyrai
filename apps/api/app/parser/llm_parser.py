@@ -28,13 +28,18 @@ class LLMParser:
         # Initialize provider client
         if self.provider == "openai":
             import openai
-            self.client = openai.AsyncOpenAI(api_key=self.api_key)  # Async client
+            # Simple initialization without extra parameters
+            self.client = openai.AsyncOpenAI(
+                api_key=self.api_key,
+                timeout=self.timeout,
+                max_retries=2
+            )
             # Use fastest model
             if self.model == "gpt-4":
                 self.model = "gpt-4o-mini"
         elif self.provider == "anthropic":
             import anthropic
-            self.client = anthropic.AsyncAnthropic(api_key=self.api_key)  # Async client
+            self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
             if self.model == "gpt-4":
                 self.model = "claude-3-haiku-20240307"
         else:
