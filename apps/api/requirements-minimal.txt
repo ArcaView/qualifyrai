@@ -1,0 +1,35 @@
+# Minimal requirements for ParseScore API (Windows compatible)
+# Skips spacy and other heavy ML libraries that need C++ compilation
+
+# Core API
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Database
+sqlalchemy==2.0.35
+alembic==1.13.3
+psycopg[binary]==3.1.18
+
+# Parsing (without spacy)
+pdfplumber==0.11.4
+python-docx==1.1.2
+python-magic-bin==0.4.14
+dateparser==1.2.0
+phonenumbers==8.13.45
+email-validator==2.2.0
+tldextract==5.1.2
+rapidfuzz==3.9.7
+
+# LLM Integration (for AI scoring)
+openai==1.54.5
+
+# Security
+argon2-cffi==23.1.0
+python-multipart==0.0.9
+
+# Utilities
+python-dotenv==1.0.1
+pyyaml==6.0.2
+structlog==24.4.0
