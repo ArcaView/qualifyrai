@@ -36,6 +36,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 import ParseScoreTest from "./pages/ParseScoreTest";
 import CompleteSignup from "./pages/CompleteSignup";
+import Status from "./pages/Status";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,7 @@ const AppContent = () => {
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/status" element={<Status />} />
           <Route path="/feature-requests" element={<ProtectedRoute><FeatureRequests /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           {/* ParseScore API Test Route - ONLY in development */}

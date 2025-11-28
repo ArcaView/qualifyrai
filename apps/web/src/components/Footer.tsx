@@ -35,6 +35,11 @@ export const Footer = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/status" className="text-muted-foreground hover:text-primary transition-colors">
+                  Status
+                </Link>
+              </li>
+              <li>
                 <a href="mailto:info@qualifyr.ai" className="text-muted-foreground hover:text-primary transition-colors">
                   Contact
                 </a>
