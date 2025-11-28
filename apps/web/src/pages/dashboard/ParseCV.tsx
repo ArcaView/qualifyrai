@@ -436,27 +436,29 @@ const ParseCV = () => {
                 <div className="flex items-center justify-between">
                   <Label htmlFor="job-description" className="flex items-center gap-2">
                     Job Description
+                    <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                  </Label>
+                  {user?.planLimits?.ai_scoring_enabled ? (
                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
                       <Sparkles className="w-3 h-3 mr-1" />
-                      {user?.planLimits?.ai_scoring_enabled ? 'AI Scoring Ready' : 'For Scoring'}
+                      AI Scoring Available
                     </Badge>
-                  </Label>
-                  {!user?.planLimits?.ai_scoring_enabled && (
+                  ) : (
                     <Badge variant="secondary" className="text-xs">
-                      Basic scoring only
+                      Basic scoring
                     </Badge>
                   )}
                 </div>
                 <Textarea
                   id="job-description"
-                  placeholder="Paste the job description here to score the candidate against the role..."
+                  placeholder="Paste the job description here to enable AI-powered candidate scoring..."
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
                   rows={4}
                   className="resize-none"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Add a job description to automatically score the candidate's fit
+                  Add a job description to score how well the candidate matches the role
                 </p>
               </div>
 
@@ -638,33 +640,78 @@ const ParseCV = () => {
                       </div>
                     )}
 
-                    <div className="flex gap-2 pt-4">
-                      <Button 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => {
-                          const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `${contactView.full_name?.replace(/\s+/g, '_') || 'parsed'}_cv.json`;
-                          a.click();
-                          URL.revokeObjectURL(url);
-                        }}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Download JSON
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="flex-1"
-                        onClick={() => {
-                          const scoreTab = document.querySelector('[value="score"]') as HTMLButtonElement;
-                          if (scoreTab) scoreTab.click();
-                        }}
-                      >
-                        Score Candidate
-                      </Button>
+                    <div className="space-y-2 pt-4">
+                      {jobDescription ? (
+                        <Button
+                          className="w-full"
+                          size="lg"
+                          onClick={handleScore}
+                          disabled={scoring}
+                        >
+                          {scoring ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 mr-2 animate-spin" />
+                              Scoring Candidate...
+                            </>
+                          ) : (
+                            <>
+                              {user?.planLimits?.ai_scoring_enabled ? (
+                                <>
+                                  <Sparkles className="w-4 h-4 mr-2" />
+                                  AI Score This Candidate
+                                </>
+                              ) : (
+                                <>
+                                  <Target className="w-4 h-4 mr-2" />
+                                  Score This Candidate
+                                </>
+                              )}
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="default"
+                          size="lg"
+                          className="w-full"
+                          onClick={() => {
+                            document.getElementById('job-description')?.focus();
+                          }}
+                        >
+                          <Target className="w-4 h-4 mr-2" />
+                          Add Job Description to Score
+                        </Button>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `${contactView.full_name?.replace(/\s+/g, '_') || 'parsed'}_cv.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download JSON
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            const scoreTab = document.querySelector('[value="score"]') as HTMLButtonElement;
+                            if (scoreTab) scoreTab.click();
+                          }}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Score Tab
+                        </Button>
+                      </div>
                     </div>
                   </TabsContent>
 
