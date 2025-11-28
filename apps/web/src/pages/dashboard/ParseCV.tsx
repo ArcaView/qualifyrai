@@ -441,7 +441,14 @@ const ParseCV = () => {
                   {user?.planLimits?.ai_scoring_enabled ? (
                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
                       <Sparkles className="w-3 h-3 mr-1" />
-                      AI Scoring Available
+                      AI Scoring
+                      {user?.planLimits?.max_ai_scores && user.planLimits.max_ai_scores < 999999 ? (
+                        <span className="ml-1 opacity-75">
+                          ({user.planLimits.max_ai_scores}/mo)
+                        </span>
+                      ) : user?.planLimits?.max_ai_scores === 999999 ? (
+                        <span className="ml-1 opacity-75">(Unlimited)</span>
+                      ) : null}
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="text-xs">
