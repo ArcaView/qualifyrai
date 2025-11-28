@@ -2,9 +2,9 @@
 
 ## The Problem
 
-You're seeing "Configuration Error: This plan is not yet configured" because the pricing_plans table has NULL values for `stripe_price_id_monthly` and `stripe_price_id_yearly`.
+You're seeing "Configuration Error: This plan is not yet configured" because the pricing_plans table has NULL values for `stripe_price_id_monthly`.
 
-These fields tell the app which Stripe prices to use when creating checkout sessions.
+This field tells the app which Stripe price to use when creating checkout sessions. Without it, the payment flow can't start.
 
 ## Step 1: Create Products in Stripe Dashboard
 
@@ -14,29 +14,24 @@ These fields tell the app which Stripe prices to use when creating checkout sess
 ### Starter Plan
 - **Name**: QualifyRAI Starter
 - **Description**: Perfect for small teams getting started
-- **Pricing**:
-  - Monthly: £49.99 GBP (Recurring)
-  - Yearly: £499.99 GBP (Recurring - save 17%)
+- **Pricing**: £49.99 GBP - Recurring monthly
+- Click **Add recurring price**
 - Click **Save product**
-- **Copy the Price IDs** (they look like `price_1ABC...` and `price_1XYZ...`)
+- **Copy the Price ID** (looks like `price_1ABC...`)
 
 ### Professional Plan
 - **Name**: QualifyRAI Professional
 - **Description**: Perfect for growing recruitment teams
-- **Pricing**:
-  - Monthly: £79.99 GBP (Recurring)
-  - Yearly: £799.99 GBP (Recurring - save 17%)
+- **Pricing**: £79.99 GBP - Recurring monthly
 - Click **Save product**
-- **Copy the Price IDs**
+- **Copy the Price ID**
 
 ### Enterprise Plan
 - **Name**: QualifyRAI Enterprise
 - **Description**: For large organizations with custom needs
-- **Pricing**:
-  - Monthly: £119.99 GBP (Recurring)
-  - Yearly: £1,199.99 GBP (Recurring - save 17%)
+- **Pricing**: £119.99 GBP - Recurring monthly
 - Click **Save product**
-- **Copy the Price IDs**
+- **Copy the Price ID**
 
 ## Step 2: Update Database with Stripe Price IDs
 
@@ -45,30 +40,26 @@ Once you have all the Stripe Price IDs, run this SQL in your Supabase SQL Editor
 ```sql
 -- Update Starter plan
 UPDATE pricing_plans
-SET
-  stripe_price_id_monthly = 'price_XXXXX_starter_monthly',  -- Replace with your actual price ID
-  stripe_price_id_yearly = 'price_XXXXX_starter_yearly'     -- Replace with your actual price ID
+SET stripe_price_id_monthly = 'price_XXXXX_starter'  -- Replace with your actual price ID from Stripe
 WHERE slug = 'starter';
 
 -- Update Professional plan
 UPDATE pricing_plans
-SET
-  stripe_price_id_monthly = 'price_XXXXX_professional_monthly',
-  stripe_price_id_yearly = 'price_XXXXX_professional_yearly'
+SET stripe_price_id_monthly = 'price_XXXXX_professional'  -- Replace with your actual price ID
 WHERE slug = 'professional';
 
 -- Update Enterprise plan
 UPDATE pricing_plans
-SET
-  stripe_price_id_monthly = 'price_XXXXX_enterprise_monthly',
-  stripe_price_id_yearly = 'price_XXXXX_enterprise_yearly'
+SET stripe_price_id_monthly = 'price_XXXXX_enterprise'  -- Replace with your actual price ID
 WHERE slug = 'enterprise';
 
 -- Verify the update
-SELECT name, slug, price_monthly, stripe_price_id_monthly, stripe_price_id_yearly
+SELECT name, slug, price_monthly, stripe_price_id_monthly
 FROM pricing_plans
 WHERE slug IN ('starter', 'professional', 'enterprise');
 ```
+
+**Note**: We're only setting monthly pricing. The `stripe_price_id_yearly` field is optional and can remain NULL.
 
 ## Step 3: Configure Stripe Environment Variables in Supabase
 
@@ -153,7 +144,7 @@ If you already created products but need to find the Price IDs:
 
 ### Can't create recurring prices
 - Make sure "Recurring" is selected when creating prices in Stripe
-- Set billing period to "Monthly" or "Yearly"
+- Set billing period to "Monthly"
 
 ## Example: Complete Stripe Setup
 
@@ -161,46 +152,29 @@ Here's what your Stripe Products should look like:
 
 ```
 QualifyRAI Starter
-├─ Monthly: £49.99/month → price_1ABC123...
-└─ Yearly: £499.99/year → price_1DEF456...
+└─ Monthly: £49.99/month → price_1ABC123...
 
 QualifyRAI Professional
-├─ Monthly: £79.99/month → price_1GHI789...
-└─ Yearly: £799.99/year → price_1JKL012...
+└─ Monthly: £79.99/month → price_1GHI789...
 
 QualifyRAI Enterprise
-├─ Monthly: £119.99/month → price_1MNO345...
-└─ Yearly: £1,199.99/year → price_1PQR678...
+└─ Monthly: £119.99/month → price_1MNO345...
 ```
 
 Then your SQL would be:
 
 ```sql
-UPDATE pricing_plans
-SET
-  stripe_price_id_monthly = 'price_1ABC123...',
-  stripe_price_id_yearly = 'price_1DEF456...'
-WHERE slug = 'starter';
-
-UPDATE pricing_plans
-SET
-  stripe_price_id_monthly = 'price_1GHI789...',
-  stripe_price_id_yearly = 'price_1JKL012...'
-WHERE slug = 'professional';
-
-UPDATE pricing_plans
-SET
-  stripe_price_id_monthly = 'price_1MNO345...',
-  stripe_price_id_yearly = 'price_1PQR678...'
-WHERE slug = 'enterprise';
+UPDATE pricing_plans SET stripe_price_id_monthly = 'price_1ABC123...' WHERE slug = 'starter';
+UPDATE pricing_plans SET stripe_price_id_monthly = 'price_1GHI789...' WHERE slug = 'professional';
+UPDATE pricing_plans SET stripe_price_id_monthly = 'price_1MNO345...' WHERE slug = 'enterprise';
 ```
 
 ## Quick Checklist
 
 - [ ] Created 3 products in Stripe (Starter, Professional, Enterprise)
-- [ ] Each product has 2 recurring prices (monthly and yearly)
-- [ ] Copied all 6 Price IDs from Stripe
-- [ ] Ran UPDATE SQL in Supabase to set stripe_price_id_monthly and stripe_price_id_yearly
+- [ ] Each product has 1 recurring monthly price
+- [ ] Copied all 3 Price IDs from Stripe
+- [ ] Ran UPDATE SQL in Supabase to set stripe_price_id_monthly
 - [ ] Verified with SELECT query that price IDs are set
 - [ ] Refreshed signup page - no more "Configuration Error"
 - [ ] Test checkout flow with Stripe test card (4242 4242 4242 4242)
