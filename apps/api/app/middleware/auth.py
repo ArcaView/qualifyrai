@@ -72,33 +72,37 @@ DEV_API_KEY = os.getenv("DEV_API_KEY")
 
 if DEV_API_KEY:
     print(f"\n🔑 Using existing API key from .env")
-    
+
     # Check if key exists in database, if not create it
-    with get_db_context() as db:
+    try:
+        with get_db_context() as db:
+            key_hash = hashlib.sha256(DEV_API_KEY.encode()).hexdigest()
+            db_key = ApiKeyRepository.get_by_hash(db, key_hash)
+
+            if not db_key:
+                # Create in database
+                print("   Creating API key in database...")
+                ApiKeyRepository.create(
+                    db=db,
+                    key_hash=key_hash,
+                    name="Development Key"
+                )
+                print("   ✅ API key saved to database")
+    except Exception as e:
+        print(f"   ⚠️  Could not connect to database: {e}")
+        print(f"   API will start but database features may not work")
+
+        # Add to in-memory store for backward compatibility
         key_hash = hashlib.sha256(DEV_API_KEY.encode()).hexdigest()
-        db_key = ApiKeyRepository.get_by_hash(db, key_hash)
-        
-        if not db_key:
-            # Create in database
-            print("   Creating API key in database...")
-            ApiKeyRepository.create(
-                db=db,
-                key_hash=key_hash,
-                name="Development Key"
-            )
-            print("   ✅ API key saved to database")
-        
-        # Also add to in-memory store for backward compatibility
-        if key_hash not in api_key_store.keys:
-            api_key_store.keys[key_hash] = {
-                "id": str(db_key.id) if db_key else "dev",
-                "user_id": "dev@example.com",
-                "rate_limit_rpm": 60,
-                "created_at": datetime.utcnow().isoformat(),
-                "last_used_at": None,
-                "status": "active",
-                "request_count": 0
-            }
+        api_key_store.keys[key_hash] = {
+            "id": "dev",
+            "user_id": "dev@example.com",
+            "rate_limit_rpm": 60,
+            "created_at": datetime.utcnow().isoformat(),
+            "last_used_at": None,
+            "status": "active",
+            "request_count": 0
+        }
     
     print(f"   Key: {DEV_API_KEY[:20]}...\n")
 else:
