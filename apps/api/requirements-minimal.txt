@@ -23,7 +23,8 @@ tldextract==5.1.2
 rapidfuzz==3.9.7
 
 # LLM Integration (for AI scoring)
-openai==1.54.5
+# Using v1.30 for Python 3.13 compatibility (1.54.5 has httpx wrapper issues)
+openai==1.30.0
 
 # Security
 argon2-cffi==23.1.0
