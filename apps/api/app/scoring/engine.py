@@ -21,8 +21,9 @@ class PrestigeDetector:
 
     # Strong universities (Russell Group, top US state schools, etc.)
     TIER_2_UNIVERSITIES = {
-        'manchester', 'edinburgh', 'warwick', 'bristol', 'durham', 'reading',
+        'manchester', 'edinburgh', 'warwick', 'bristol', 'durham',
         'nottingham', 'birmingham', 'leeds', 'sheffield', 'southampton',
+        'reading',  # Good for some subjects, solid overall
         'ucla', 'michigan', 'virginia', 'texas', 'washington', 'cornell',
         'penn', 'duke', 'northwestern', 'johns hopkins', 'carnegie mellon'
     }
@@ -35,11 +36,17 @@ class PrestigeDetector:
         'deloitte', 'pwc', 'ey', 'kpmg', 'accenture'
     }
 
-    # Well-known companies (tech scale-ups, regional banks, boutiques)
+    # Well-known companies (established firms, boutiques, regional players)
     TIER_2_COMPANIES = {
         'salesforce', 'adobe', 'oracle', 'ibm', 'uber', 'airbnb',
         'barclays', 'hsbc', 'citi', 'citigroup', 'credit suisse',
-        'laven partners', 'rothschild', 'lazard', 'evercore'
+        'rothschild', 'lazard', 'evercore', 'moelis'
+    }
+
+    # Lesser-known but legitimate companies (small boutiques, startups)
+    TIER_3_COMPANIES = {
+        'laven partners',  # Small boutique - good experience but not prestigious
+        'rolabotic'  # Small consulting/startup
     }
 
     @classmethod
@@ -73,22 +80,27 @@ class PrestigeDetector:
         Get prestige multiplier for a company.
 
         Returns:
-            1.4 for Tier 1, 1.2 for Tier 2, 1.0 for others
+            1.4 for Tier 1, 1.2 for Tier 2, 1.05 for Tier 3, 1.0 for unknown
         """
         if not company_name:
             return 1.0
 
         name_lower = company_name.lower()
 
-        # Check Tier 1
+        # Check Tier 1 (prestigious: FAANG, Big 4, major banks)
         for company in cls.TIER_1_COMPANIES:
             if company in name_lower:
                 return 1.4
 
-        # Check Tier 2
+        # Check Tier 2 (well-known: established firms, boutiques)
         for company in cls.TIER_2_COMPANIES:
             if company in name_lower:
                 return 1.2
+
+        # Check Tier 3 (lesser-known but legitimate)
+        for company in cls.TIER_3_COMPANIES:
+            if company in name_lower:
+                return 1.05
 
         return 1.0
 
@@ -387,11 +399,33 @@ class ScoringEngine:
 
         # Score against requirements - ADJUSTED FOR JOB LEVEL
         if job_level == 'intern':
-            # For intern roles: any relevant experience is great, even short internships
+            # For intern roles: score varies significantly by company prestige
             if is_likely_intern or total_years < 1:
-                # Perfect candidate for intern role
-                base_score = 80.0 + (prestige_years / 0.5) * 15  # 6 months at good company = 95
-                component_score = min(95.0, base_score)
+                # Score based on company tier
+                if max_prestige >= 1.4:
+                    # Tier 1 company (FAANG, Big 4, etc.)
+                    base_score = 70.0
+                    max_bonus = 25.0
+                    target_years = 0.5
+                elif max_prestige >= 1.2:
+                    # Tier 2 company (well-known firms)
+                    base_score = 60.0
+                    max_bonus = 25.0
+                    target_years = 0.5
+                elif max_prestige >= 1.05:
+                    # Tier 3 company (small boutiques)
+                    base_score = 45.0
+                    max_bonus = 20.0
+                    target_years = 0.5
+                else:
+                    # Unknown company
+                    base_score = 35.0
+                    max_bonus = 15.0
+                    target_years = 0.5
+
+                # Add bonus based on prestige-weighted experience
+                bonus = (prestige_years / target_years) * max_bonus
+                component_score = min(base_score + max_bonus, base_score + bonus)
             else:
                 # Overqualified but still good
                 component_score = 90.0 + (max_prestige - 1.0) * 5
