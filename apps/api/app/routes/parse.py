@@ -97,18 +97,30 @@ async def parse_cv(
             
             print(f"DEBUG: Attempting to save CV...")
             print(f"  api_key_id: {api_key_id}")
-            # Save parsed CV to database
-            parsed_cv_record = ParsedCVRepository.create(
-                db=db,
-                request_id=request_id,
-                api_key_id=api_key_id,
-                filename=file.filename,
-                file_type=file_ext,
-                parsed_data=candidate.model_dump(mode='json')
-            )
-            
-            # Store the DB ID in the candidate metadata for reference
-            candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
+
+            try:
+                # Save parsed CV to database
+                parsed_cv_record = ParsedCVRepository.create(
+                    db=db,
+                    request_id=request_id,
+                    api_key_id=api_key_id,
+                    filename=file.filename,
+                    file_type=file_ext,
+                    parsed_data=candidate.model_dump(mode='json')
+                )
+
+                print(f"✅ CV saved to database with ID: {parsed_cv_record.id}")
+
+                # Store the DB ID in the candidate metadata for reference
+                candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
+            except Exception as save_error:
+                print(f"❌ FAILED to save CV to database: {save_error}")
+                print(f"   Error type: {type(save_error).__name__}")
+                import traceback
+                traceback.print_exc()
+                # Don't fail the whole request, just log the error
+                candidate.parsing_metadata['cv_id'] = None
+                candidate.parsing_metadata['save_error'] = str(save_error)
         
         # Optionally remove raw text for privacy
         if not return_raw_text and not settings.RETURN_RAW_TEXT:
