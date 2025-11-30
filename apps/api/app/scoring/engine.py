@@ -28,10 +28,12 @@ class PrestigeDetector:
         'penn', 'duke', 'northwestern', 'johns hopkins', 'carnegie mellon'
     }
 
-    # Universities with strong finance/business programs (subject-specific)
+    # Universities with truly strong/elite finance/business programs (subject-specific)
+    # Only includes programs that are genuinely exceptional for finance, not just "above average"
     FINANCE_STRONG_UNIVERSITIES = {
-        'london school of economics', 'lse', 'warwick', 'reading',
-        'cass', 'city university', 'imperial', 'wharton', 'stern'
+        'london school of economics', 'lse', 'warwick',
+        'cass', 'city university', 'imperial',
+        'wharton', 'stern', 'booth', 'sloan', 'kellogg', 'haas'
     }
 
     # Prestigious companies (FAANG, Big 4, major banks, consulting)
@@ -565,10 +567,10 @@ class ScoringEngine:
     def _score_education(self, candidate: ParsedCandidate, job: JobProfile, job_level: str) -> Tuple[float, float]:
         """Score education (10% weight) with university prestige and grades.
 
-        Realistic scoring:
-        - First from Oxford: 92-95
-        - 2:1 from Russell Group: 70-80
-        - ABB from Reading (finance): 60-70
+        Realistic scoring examples:
+        - First from Tier 1 (Oxford, MIT, Stanford, etc.): 92-95
+        - 2:1 from Tier 2 (Russell Group, etc.): 70-80
+        - ABB from Tier 2 (Reading, etc.): 55-60
         - Poor grades/unknown uni: 10-30
 
         Args:
