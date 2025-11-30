@@ -878,8 +878,53 @@ const ParseCV = () => {
 
                         {scoreResult.rationale && (
                           <div className="pt-4 border-t">
-                            <p className="font-medium mb-2">Rationale</p>
-                            <p className="text-sm text-muted-foreground">{scoreResult.rationale}</p>
+                            <p className="font-medium mb-3">AI Analysis</p>
+                            <div className="space-y-4 text-sm">
+                              {scoreResult.rationale.split('\n\n').map((section: string, idx: number) => {
+                                const lines = section.split('\n');
+                                const heading = lines[0];
+                                const content = lines.slice(1);
+
+                                // Check if this is a heading (starts with **)
+                                const isHeading = heading.startsWith('**');
+                                const headingText = isHeading ? heading.replace(/\*\*/g, '') : heading;
+
+                                return (
+                                  <div key={idx} className="space-y-1.5">
+                                    {isHeading && (
+                                      <h4 className="font-semibold text-foreground text-xs uppercase tracking-wide">
+                                        {headingText}
+                                      </h4>
+                                    )}
+                                    {content.map((line: string, lineIdx: number) => {
+                                      // Check if bullet point
+                                      const isBullet = line.trim().startsWith('•');
+
+                                      if (isBullet) {
+                                        return (
+                                          <div key={lineIdx} className="flex gap-2 items-start ml-1">
+                                            <span className="text-primary mt-0.5">•</span>
+                                            <span className="text-muted-foreground flex-1">
+                                              {line.trim().substring(1).trim()}
+                                            </span>
+                                          </div>
+                                        );
+                                      }
+
+                                      // Regular paragraph
+                                      return line.trim() ? (
+                                        <p key={lineIdx} className="text-muted-foreground leading-relaxed">
+                                          {line.trim()}
+                                        </p>
+                                      ) : null;
+                                    })}
+                                    {!isHeading && (
+                                      <p className="text-muted-foreground leading-relaxed">{heading}</p>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
 
