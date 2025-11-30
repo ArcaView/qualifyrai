@@ -189,10 +189,14 @@ def root():
 # ROUTE IMPORTS
 # ============================================================================
 
-from app.routes import health
+from app.routes import parse, score, batch, health, jobs
 
 # Include routers
+app.include_router(parse.router)
+app.include_router(score.router)
+app.include_router(batch.router)
 app.include_router(health.router)
+app.include_router(jobs.router)
 
 
 if __name__ == "__main__":
