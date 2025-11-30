@@ -56,11 +56,31 @@ class LLMScorer:
             
             # Get LLM response
             llm_response = await self._call_llm(context)
-            
-            # Parse response
-            rationale = llm_response.get("rationale", "")
+
+            # Parse structured response and format into readable rationale
+            summary = llm_response.get("summary", "")
+            strengths = llm_response.get("strengths", [])
+            concerns = llm_response.get("concerns", [])
+            recommendation = llm_response.get("recommendation", "")
             adjustment = llm_response.get("score_adjustment", 0) or 0  # Handle None
             additional_flags = llm_response.get("flags", [])
+
+            # Build formatted rationale from structured data
+            rationale_parts = []
+
+            if summary:
+                rationale_parts.append(f"**Summary**\n{summary}")
+
+            if strengths:
+                rationale_parts.append("**Key Strengths**\n" + "\n".join(f"• {s}" for s in strengths))
+
+            if concerns:
+                rationale_parts.append("**Areas of Concern**\n" + "\n".join(f"• {c}" for c in concerns))
+
+            if recommendation:
+                rationale_parts.append(f"**Recommendation**\n{recommendation}")
+
+            rationale = "\n\n".join(rationale_parts) if rationale_parts else "No detailed analysis available."
             
             # Clamp adjustment to -10 to +10
             adjustment = max(-10, min(10, adjustment))
@@ -222,15 +242,22 @@ Risk Flags: {len(context['flags'])}
 {chr(10).join(f"  - [{flag['severity']}] {flag['description']}" for flag in context['flags'])}
 
 # Your Task
-Provide your assessment in JSON format:
+Provide a structured assessment in JSON format:
 {{
-  "rationale": "2-3 paragraph professional explanation of the match quality, highlighting key strengths and concerns",
+  "summary": "1-2 sentence overview of the match quality",
+  "strengths": ["Specific strength 1", "Specific strength 2", "Specific strength 3"],  // 3-5 bullet points
+  "concerns": ["Specific concern 1", "Specific concern 2"],  // 2-4 bullet points (or empty array if none)
+  "recommendation": "Brief recommendation (1-2 sentences)",
   "score_adjustment": 0,  // Integer from -10 to +10 (0 if baseline is accurate)
   "flags": []  // Array of additional flags: [{{"type": "...", "severity": "low|medium|high", "description": "..."}}]
 }}
 
-Only adjust the score if you identify significant qualitative factors the algorithm clearly missed. Most adjustments should be in the -5 to +5 range."""
-        
+Guidelines:
+- Be specific and reference actual skills/experiences from the CV
+- Keep bullets concise (1 line each)
+- Focus on actionable insights
+- Only adjust score if you identify significant qualitative factors the algorithm missed"""
+
         return prompt
     
     async def _call_openai(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
