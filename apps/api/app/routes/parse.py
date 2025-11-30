@@ -184,30 +184,34 @@ async def get_parsed_cv(
     api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
-    """Retrieve a previously parsed CV by ID.
-    
+    """Retrieve a previously parsed CV by ID or request_id.
+
     Args:
-        cv_id: Parsed CV ID from database
-        
+        cv_id: Parsed CV ID (database UUID) OR request_id from parse response
+
     Returns:
         ParsedCandidate data
-        
+
     Raises:
         404: CV not found
     """
     request_id = request.state.request_id
-    
-    # Retrieve from database
+
+    # Try to retrieve by database ID first
     cv_record = ParsedCVRepository.get_by_id(db, cv_id)
-    
+
+    # If not found, try by request_id
+    if not cv_record:
+        cv_record = ParsedCVRepository.get_by_request_id(db, cv_id)
+
     if not cv_record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ErrorDetail(
                 request_id=request_id,
                 error_code="cv_not_found",
-                message=f"No CV found with ID: {cv_id}",
-                hint="Check the CV ID or ensure it was parsed with persist=true"
+                message=f"No CV found with ID or request_id: {cv_id}",
+                hint="Check the CV ID/request_id or ensure it was parsed with persist=true"
             ).model_dump()
         )
     
