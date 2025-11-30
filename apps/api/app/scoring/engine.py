@@ -64,26 +64,26 @@ class ScoringEngine:
             cert_score * weights['certifications'] / 100 +
             stability_score * weights['stability'] / 100
         )
-        
+
         # Generate flags
         flags = self._generate_flags(candidate, job, skills_score, exp_score, stability_score)
-        
+
         # Build breakdown
         breakdown = ScoreBreakdown(
-            skills_score=skills_score,
-            experience_score=exp_score,
-            education_score=edu_score,
-            certifications_score=cert_score,
-            stability_score=stability_score,
-            skills_contribution=skills_contrib,
-            experience_contribution=exp_contrib,
-            education_contribution=edu_contrib,
-            certifications_contribution=cert_contrib,
-            stability_contribution=stability_contrib
+            skills_score=round(skills_score, 2),
+            experience_score=round(exp_score, 2),
+            education_score=round(edu_score, 2),
+            certifications_score=round(cert_score, 2),
+            stability_score=round(stability_score, 2),
+            skills_contribution=round(skills_contrib, 2),
+            experience_contribution=round(exp_contrib, 2),
+            education_contribution=round(edu_contrib, 2),
+            certifications_contribution=round(cert_contrib, 2),
+            stability_contribution=round(stability_contrib, 2)
         )
-        
+
         return ScoringResult(
-            overall_score=round(overall, 1),
+            overall_score=round(overall, 2),  # Round to 2 decimal places
             breakdown=breakdown,
             rationale=None,  # Baseline mode has no rationale
             flags=flags,
@@ -96,108 +96,117 @@ class ScoringEngine:
     
     def _score_skills(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
         """Score skills match (55% weight).
-        
+
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not job.required_skills and not job.preferred_skills:
-            return 100.0, self.WEIGHTS['skills']
-        
+            # No requirements: give partial credit for having any skills
+            return 75.0, round(self.WEIGHTS['skills'] * 0.75, 2)
+
         candidate_skills = {s.name.lower(): s for s in candidate.skills}
-        
+
         # Required skills (must have, hard penalty if missing)
         required_score = 0.0
         if job.required_skills:
-            matches = 0
+            matches = 0.0
             for req_skill in job.required_skills:
                 match_strength = self.skill_matcher.match_skill(
                     req_skill,
                     candidate_skills
                 )
                 matches += match_strength
-            required_score = (matches / len(job.required_skills)) * 100
+            # Cap at 95 to make perfect score harder
+            required_score = min(95.0, (matches / len(job.required_skills)) * 100)
         else:
-            required_score = 100.0  # No requirements = full marks
-        
+            required_score = 80.0  # No requirements = good but not perfect
+
         # Preferred skills (nice to have, bonus)
         preferred_score = 0.0
         if job.preferred_skills:
-            matches = 0
+            matches = 0.0
             for pref_skill in job.preferred_skills:
                 match_strength = self.skill_matcher.match_skill(
                     pref_skill,
                     candidate_skills
                 )
                 matches += match_strength
-            preferred_score = (matches / len(job.preferred_skills)) * 100
-        
+            # Cap at 90 for preferred skills
+            preferred_score = min(90.0, (matches / len(job.preferred_skills)) * 100)
+
         # Weighted combination: required is 70%, preferred is 30%
         if job.required_skills:
             component_score = required_score * 0.7 + preferred_score * 0.3
         else:
             component_score = preferred_score
-        
-        contribution = component_score * self.WEIGHTS['skills'] / 100
+
+        # Round to 2 decimal places
+        component_score = round(component_score, 2)
+        contribution = round(component_score * self.WEIGHTS['skills'] / 100, 2)
         return component_score, contribution
     
     def _score_experience(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
         """Score work experience (25% weight).
-        
+
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not candidate.work_experience:
             return 0.0, 0.0
-        
+
         # Calculate total relevant years with recency weighting
         total_months = 0
         weighted_months = 0.0
         current_year = date.today().year
-        
+
         for work in candidate.work_experience:
             if work.duration_months:
                 total_months += work.duration_months
-                
+
                 # Apply recency decay
                 if work.end_date:
                     years_ago = current_year - work.end_date.year
                     recency_factor = max(0.5, 1.0 - (years_ago * 0.1))
                 else:
                     recency_factor = 1.0  # Current role
-                
+
                 weighted_months += work.duration_months * recency_factor
-        
+
         total_years = total_months / 12.0
         weighted_years = weighted_months / 12.0
-        
+
         # Score against requirements
         if job.min_years_experience:
             if total_years >= job.min_years_experience:
                 # Meet minimum, score based on how much experience vs preferred
                 preferred = job.preferred_years_experience or job.min_years_experience * 1.5
                 excess = min(weighted_years - job.min_years_experience, preferred - job.min_years_experience)
-                component_score = 70 + (excess / (preferred - job.min_years_experience)) * 30
+                # Cap at 90 instead of 100 to make perfect score harder
+                component_score = min(90.0, 70 + (excess / (preferred - job.min_years_experience)) * 20)
             else:
                 # Below minimum, proportional penalty
                 component_score = (total_years / job.min_years_experience) * 70
         else:
             # No requirements, score based on absolute experience
-            component_score = min(100.0, (weighted_years / 5.0) * 100)  # 5 years = 100%
-        
-        contribution = component_score * self.WEIGHTS['experience'] / 100
-        return min(100.0, component_score), contribution
+            # 8+ years = 85% (not 100%), use diminishing returns
+            component_score = min(85.0, (weighted_years / 8.0) * 85)
+
+        # Round to 2 decimal places
+        component_score = round(component_score, 2)
+        contribution = round(component_score * self.WEIGHTS['experience'] / 100, 2)
+        return component_score, contribution
     
     def _score_education(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
         """Score education (10% weight).
-        
+
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not candidate.education:
             if job.min_education:
                 return 0.0, 0.0
-            return 50.0, self.WEIGHTS['education'] * 0.5  # Partial credit if no req
-        
+            return round(50.0, 2), round(self.WEIGHTS['education'] * 0.5, 2)
+
         # Education level hierarchy
         level_rank = {
             EducationLevel.HIGH_SCHOOL: 1,
@@ -207,102 +216,124 @@ class ScoringEngine:
             EducationLevel.MASTERS: 5,
             EducationLevel.DOCTORATE: 6
         }
-        
+
         # Get highest candidate degree
         highest_degree = None
         for edu in candidate.education:
             if edu.degree and (not highest_degree or level_rank.get(edu.degree, 0) > level_rank.get(highest_degree, 0)):
                 highest_degree = edu.degree
-        
+
         if not job.min_education:
-            # No requirement, give credit for having education
+            # No requirement, give credit for having education (but not perfect)
             if highest_degree:
-                return 100.0, self.WEIGHTS['education']
-            return 50.0, self.WEIGHTS['education'] * 0.5
-        
+                # Scale based on degree level: Bachelors=70, Masters=80, Doctorate=85
+                candidate_rank = level_rank.get(highest_degree, 0)
+                component_score = min(85.0, 50 + (candidate_rank * 10))
+            else:
+                component_score = 50.0
+            contribution = round(component_score * self.WEIGHTS['education'] / 100, 2)
+            return round(component_score, 2), contribution
+
         # Compare to requirements
         min_rank = level_rank.get(job.min_education, 0)
         candidate_rank = level_rank.get(highest_degree, 0) if highest_degree else 0
-        
+
         if candidate_rank >= min_rank:
-            component_score = 100.0
-            # Bonus for exceeding preferred
+            # Meets minimum: 85 base score
+            component_score = 85.0
+            # Small bonus for exceeding preferred (max 92)
             if job.preferred_education:
                 pref_rank = level_rank.get(job.preferred_education, 0)
                 if candidate_rank >= pref_rank:
-                    component_score = 100.0
+                    component_score = 92.0
         else:
             # Below minimum
             component_score = (candidate_rank / min_rank) * 70 if min_rank > 0 else 0.0
-        
-        contribution = component_score * self.WEIGHTS['education'] / 100
+
+        # Round to 2 decimal places
+        component_score = round(component_score, 2)
+        contribution = round(component_score * self.WEIGHTS['education'] / 100, 2)
         return component_score, contribution
     
     def _score_certifications(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
         """Score certifications (5% weight).
-        
+
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not job.required_certifications:
-            # No requirements, give credit for having any
+            # No requirements, give credit for having any (but not perfect)
             if candidate.certifications:
-                return 100.0, self.WEIGHTS['certifications']
-            return 50.0, self.WEIGHTS['certifications'] * 0.5
-        
+                # Having certs is good but not 100%
+                component_score = min(80.0, 50 + len(candidate.certifications) * 10)
+            else:
+                component_score = 50.0
+            contribution = round(component_score * self.WEIGHTS['certifications'] / 100, 2)
+            return round(component_score, 2), contribution
+
         if not candidate.certifications:
             return 0.0, 0.0
-        
+
         # Match required certifications
         candidate_certs = {c.name.lower() for c in candidate.certifications}
         matches = 0
-        
+
         for req_cert in job.required_certifications:
             for cand_cert in candidate_certs:
                 if fuzz.ratio(req_cert.lower(), cand_cert) > 80:
                     matches += 1
                     break
-        
-        component_score = (matches / len(job.required_certifications)) * 100
-        contribution = component_score * self.WEIGHTS['certifications'] / 100
+
+        # Cap at 90 instead of 100
+        component_score = min(90.0, (matches / len(job.required_certifications)) * 90)
+
+        # Round to 2 decimal places
+        component_score = round(component_score, 2)
+        contribution = round(component_score * self.WEIGHTS['certifications'] / 100, 2)
         return component_score, contribution
     
     def _score_stability(self, candidate: ParsedCandidate) -> Tuple[float, float]:
         """Score job stability (5% weight).
-        
+
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not candidate.work_experience or len(candidate.work_experience) < 2:
-            return 80.0, self.WEIGHTS['stability'] * 0.8  # Neutral for limited history
-        
+            return round(75.0, 2), round(self.WEIGHTS['stability'] * 0.75, 2)
+
         # Calculate average tenure
         tenures = []
         for work in candidate.work_experience:
             if work.duration_months:
                 tenures.append(work.duration_months)
-        
+
         if not tenures:
-            return 80.0, self.WEIGHTS['stability'] * 0.8
-        
+            return round(75.0, 2), round(self.WEIGHTS['stability'] * 0.75, 2)
+
         avg_tenure_months = sum(tenures) / len(tenures)
         avg_tenure_years = avg_tenure_months / 12.0
-        
-        # Score based on average tenure
-        # 2+ years = excellent, 1-2 years = good, <1 year = concerning
-        if avg_tenure_years >= 2.0:
-            component_score = 100.0
+
+        # Score based on average tenure (harder to get high scores)
+        # 4+ years = 90, 3 years = 85, 2 years = 75, 1-2 years = 60-75
+        if avg_tenure_years >= 4.0:
+            component_score = 90.0
+        elif avg_tenure_years >= 3.0:
+            component_score = 85.0
+        elif avg_tenure_years >= 2.0:
+            component_score = 75.0
         elif avg_tenure_years >= 1.0:
-            component_score = 70.0 + (avg_tenure_years - 1.0) * 30
+            component_score = 60.0 + (avg_tenure_years - 1.0) * 15
         else:
-            component_score = avg_tenure_years * 70.0
-        
+            component_score = avg_tenure_years * 60.0
+
         # Penalty for many short stints (job hopping)
         short_stints = sum(1 for t in tenures if t < 12)
         if short_stints >= 3:
             component_score *= 0.7
-        
-        contribution = component_score * self.WEIGHTS['stability'] / 100
+
+        # Round to 2 decimal places
+        component_score = round(component_score, 2)
+        contribution = round(component_score * self.WEIGHTS['stability'] / 100, 2)
         return component_score, contribution
     
     def _generate_flags(
