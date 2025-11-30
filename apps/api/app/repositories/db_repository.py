@@ -1,10 +1,14 @@
 """Repository layer for database CRUD operations."""
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from app.models.database import ApiKey, ParsedCV, ScoringResult, JobProfile
 from datetime import datetime
 from typing import Optional, List
 from decimal import Decimal
 import hashlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ApiKeyRepository:
@@ -55,7 +59,7 @@ class ApiKeyRepository:
 
 class ParsedCVRepository:
     """Repository for parsed CV operations."""
-    
+
     @staticmethod
     def create(
         db: Session,
@@ -65,18 +69,62 @@ class ParsedCVRepository:
         file_type: str,
         parsed_data: dict
     ) -> ParsedCV:
-        """Store a parsed CV."""
-        cv = ParsedCV(
-            request_id=request_id,
-            api_key_id=api_key_id,
-            filename=filename,
-            file_type=file_type,
-            parsed_data=parsed_data
-        )
-        db.add(cv)
-        db.commit()
-        db.refresh(cv)
-        return cv
+        """
+        Store a parsed CV with enhanced error handling.
+
+        Args:
+            db: Database session
+            request_id: Request ID for tracking
+            api_key_id: API key ID
+            filename: Original filename
+            file_type: File extension
+            parsed_data: Parsed CV data dictionary
+
+        Returns:
+            ParsedCV record
+
+        Raises:
+            IntegrityError: If there's a constraint violation
+            SQLAlchemyError: For other database errors
+        """
+        try:
+            cv = ParsedCV(
+                request_id=request_id,
+                api_key_id=api_key_id,
+                filename=filename,
+                file_type=file_type,
+                parsed_data=parsed_data
+            )
+            db.add(cv)
+
+            # Note: Commit is now handled by the persistence service
+            # for better transaction control
+
+            logger.debug(
+                f"ParsedCV record prepared for commit: "
+                f"request_id={request_id}, filename={filename}"
+            )
+
+            return cv
+
+        except IntegrityError as e:
+            logger.error(
+                f"Integrity error creating ParsedCV: "
+                f"request_id={request_id}, error={e}"
+            )
+            raise
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Database error creating ParsedCV: "
+                f"request_id={request_id}, error={e}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error creating ParsedCV: "
+                f"request_id={request_id}, error={e}"
+            )
+            raise
     
     @staticmethod
     def get_by_id(db: Session, cv_id: str) -> Optional[ParsedCV]:

@@ -194,12 +194,13 @@ def root():
 # ROUTE IMPORTS
 # ============================================================================
 
-from app.routes import parse, score, batch
+from app.routes import parse, score, batch, health
 
 # Include routers
 app.include_router(parse.router)
 app.include_router(score.router)
 app.include_router(batch.router)
+app.include_router(health.router)
 
 # ============================================================================
 # PLACEHOLDER ENDPOINTS (to be implemented)

@@ -1,5 +1,6 @@
 """Parse endpoint - CV parsing routes with database persistence."""
 import time
+import logging
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Request, Depends
 from sqlalchemy.orm import Session
 
@@ -9,8 +10,10 @@ from app.config import settings
 from app.middleware.auth import verify_api_key
 from app.database import get_db
 from app.repositories.db_repository import ParsedCVRepository
+from app.services.persistence_service import persistence_service, PersistenceError
 
 router = APIRouter(prefix="/v1", tags=["Parsing"])
+logger = logging.getLogger(__name__)
 
 # Initialize parser
 parser = CVParser()
@@ -78,53 +81,64 @@ async def parse_cv(
     # Parse the CV
     try:
         candidate = await parser.parse_file(file_bytes, file.filename)
-        
+
         # Persist to database if requested or configured
         should_persist = persist or settings.PERSIST_DEFAULT
 
-        # DEBUG LOGGING
-        print(f"\n=== PARSE DEBUG ===")
-        print(f"persist param: {persist}")
-        print(f"PERSIST_DEFAULT: {settings.PERSIST_DEFAULT}")
-        print(f"should_persist: {should_persist}")
-        print(f"api_key_data keys: {list(api_key_data.keys())}")
-        print(f"api_key_data: {api_key_data}")
-        print(f"==================\n")
+        logger.info(
+            f"Parse completed for request {request_id}: "
+            f"filename={file.filename}, persist={persist}, "
+            f"PERSIST_DEFAULT={settings.PERSIST_DEFAULT}, "
+            f"should_persist={should_persist}"
+        )
 
         if should_persist:
             # Get API key ID from request state (set by auth middleware)
             api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
-            
-            print(f"DEBUG: Attempting to save CV...")
-            print(f"  api_key_id: {api_key_id}")
 
-            try:
-                # Save parsed CV to database
-                parsed_cv_record = ParsedCVRepository.create(
-                    db=db,
-                    request_id=request_id,
-                    api_key_id=api_key_id,
-                    filename=file.filename,
-                    file_type=file_ext,
-                    parsed_data=candidate.model_dump(mode='json')
+            logger.info(
+                f"Initiating robust persistence for CV: "
+                f"request_id={request_id}, api_key_id={api_key_id}"
+            )
+
+            # Use robust persistence service with retry and verification
+            parsed_cv_record, error_msg = persistence_service.save_parsed_cv_robust(
+                db=db,
+                request_id=request_id,
+                api_key_id=api_key_id,
+                filename=file.filename,
+                file_type=file_ext,
+                parsed_data=candidate.model_dump(mode='json'),
+                fail_on_error=False  # Don't fail the parse request if save fails
+            )
+
+            if parsed_cv_record:
+                # Success - store the CV ID in metadata
+                candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
+                candidate.parsing_metadata['persistence_status'] = 'saved'
+
+                logger.info(
+                    f"✅ CV successfully persisted: "
+                    f"cv_id={parsed_cv_record.id}, "
+                    f"request_id={request_id}"
+                )
+            else:
+                # Failed to save - error message contains details including backup path
+                candidate.parsing_metadata['cv_id'] = None
+                candidate.parsing_metadata['persistence_status'] = 'failed'
+                candidate.parsing_metadata['persistence_error'] = error_msg
+
+                logger.error(
+                    f"❌ CV persistence failed: "
+                    f"request_id={request_id}, "
+                    f"error={error_msg}"
                 )
 
-                # Force commit and flush to ensure persistence
-                db.flush()
-                db.commit()
-
-                print(f"✅ CV saved to database with ID: {parsed_cv_record.id}")
-
-                # Store the DB ID in the candidate metadata for reference
-                candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
-            except Exception as save_error:
-                print(f"❌ FAILED to save CV to database: {save_error}")
-                print(f"   Error type: {type(save_error).__name__}")
-                import traceback
-                traceback.print_exc()
-                # Don't fail the whole request, just log the error
-                candidate.parsing_metadata['cv_id'] = None
-                candidate.parsing_metadata['save_error'] = str(save_error)
+                # Log warning to alert ops team
+                logger.warning(
+                    f"ALERT: CV data may be in backup - check backup directory. "
+                    f"request_id={request_id}"
+                )
         
         # Optionally remove raw text for privacy
         if not return_raw_text and not settings.RETURN_RAW_TEXT:
