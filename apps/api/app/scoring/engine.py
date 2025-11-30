@@ -95,7 +95,7 @@ class PrestigeDetector:
 
 class ScoringEngine:
     """Deterministic baseline scoring engine."""
-    
+
     # Component weights (must sum to 100)
     WEIGHTS = {
         'skills': 55.0,
@@ -104,14 +104,54 @@ class ScoringEngine:
         'certifications': 5.0,
         'stability': 5.0
     }
-    
+
     # Version tracking for audit
-    RULES_VERSION = "2.0.0"  # Major update: prestige, flexible matching, context-aware
-    MODEL_VERSION = "baseline-2.0"
-    
+    RULES_VERSION = "2.1.0"  # Added job-level awareness
+    MODEL_VERSION = "baseline-2.1"
+
+    # Job level keywords
+    INTERN_KEYWORDS = ['intern', 'internship', 'trainee', 'placement', 'summer analyst', 'spring week']
+    ENTRY_LEVEL_KEYWORDS = ['entry', 'junior', 'graduate', 'analyst', 'associate', 'assistant']
+    SENIOR_KEYWORDS = ['senior', 'lead', 'principal', 'staff', 'head', 'director', 'manager', 'vp', 'vice president']
+
     def __init__(self):
         """Initialize scoring engine."""
         self.skill_matcher = SkillMatcher()
+
+    def _detect_job_level(self, job: JobProfile) -> str:
+        """
+        Detect the job level from title and description.
+
+        Returns:
+            'intern', 'entry', 'mid', or 'senior'
+        """
+        title_lower = job.title.lower()
+        desc_lower = job.description.lower()
+        combined = f"{title_lower} {desc_lower}"
+
+        # Check for intern first (most specific)
+        if any(kw in combined for kw in self.INTERN_KEYWORDS):
+            return 'intern'
+
+        # Check for senior
+        if any(kw in combined for kw in self.SENIOR_KEYWORDS):
+            return 'senior'
+
+        # Check for entry-level
+        if any(kw in combined for kw in self.ENTRY_LEVEL_KEYWORDS):
+            return 'entry'
+
+        # Check experience requirements as fallback
+        if job.min_years_experience:
+            if job.min_years_experience <= 1:
+                return 'entry'
+            elif job.min_years_experience <= 3:
+                return 'mid'
+            else:
+                return 'senior'
+
+        # Default to mid-level
+        return 'mid'
     
     def score(
         self,
@@ -121,24 +161,27 @@ class ScoringEngine:
         request_id: str = "unknown"
     ) -> ScoringResult:
         """Score a candidate against a job profile.
-        
+
         Args:
             candidate: Parsed candidate data
             job: Job requirements
             custom_weights: Optional custom component weights
             request_id: Request ID for tracking
-            
+
         Returns:
             ScoringResult with overall score, breakdown, and flags
         """
         weights = custom_weights or self.WEIGHTS
-        
-        # Calculate component scores
-        skills_score, skills_contrib = self._score_skills(candidate, job)
-        exp_score, exp_contrib = self._score_experience(candidate, job)
-        edu_score, edu_contrib = self._score_education(candidate, job)
-        cert_score, cert_contrib = self._score_certifications(candidate, job)
-        stability_score, stability_contrib = self._score_stability(candidate)
+
+        # Detect job level for context-aware scoring
+        job_level = self._detect_job_level(job)
+
+        # Calculate component scores (all now job-level aware)
+        skills_score, skills_contrib = self._score_skills(candidate, job, job_level)
+        exp_score, exp_contrib = self._score_experience(candidate, job, job_level)
+        edu_score, edu_contrib = self._score_education(candidate, job, job_level)
+        cert_score, cert_contrib = self._score_certifications(candidate, job, job_level)
+        stability_score, stability_contrib = self._score_stability(candidate, job_level)
         
         # Calculate weighted overall score
         overall = (
@@ -178,8 +221,13 @@ class ScoringEngine:
             request_id=request_id
         )
     
-    def _score_skills(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
-        """Score skills match (55% weight) with flexible matching.
+    def _score_skills(self, candidate: ParsedCandidate, job: JobProfile, job_level: str) -> Tuple[float, float]:
+        """Score skills match (55% weight) with flexible matching and job-level awareness.
+
+        Args:
+            candidate: Candidate data
+            job: Job requirements
+            job_level: 'intern', 'entry', 'mid', or 'senior'
 
         Returns:
             (component_score 0-100, weighted_contribution)
@@ -195,8 +243,40 @@ class ScoringEngine:
 
         candidate_skills = {s.name.lower(): s for s in candidate.skills}
 
+        # For interns/entry-level: extract skills from coursework in education
+        if job_level in ['intern', 'entry'] and candidate.education:
+            for edu in candidate.education:
+                # Look for relevant coursework in institution name or as field
+                coursework_text = f"{edu.field or ''} {edu.institution or ''}".lower()
+
+                # Finance coursework keywords
+                finance_keywords = {
+                    'corporate finance': 'corporate finance',
+                    'financial modelling': 'financial modeling',
+                    'financial modeling': 'financial modeling',
+                    'portfolio management': 'portfolio management',
+                    'fx': 'foreign exchange',
+                    'debt markets': 'debt markets',
+                    'econometrics': 'econometrics',
+                    'accounting': 'accounting',
+                    'valuation': 'valuation',
+                    'investment': 'investment',
+                    'financial analysis': 'financial analysis'
+                }
+
+                for keyword, skill_name in finance_keywords.items():
+                    if keyword in coursework_text and skill_name not in candidate_skills:
+                        # Add as a skill with slightly lower confidence
+                        candidate_skills[skill_name] = f"coursework:{skill_name}"
+
         # Give base credit for having ANY skills (reduces harshness)
-        base_credit = min(30.0, len(candidate.skills) * 3) if candidate.skills else 0.0
+        # Higher base credit for interns (they're learning!)
+        if job_level == 'intern':
+            base_credit = min(40.0, len(candidate_skills) * 4) if candidate_skills else 0.0
+        elif job_level == 'entry':
+            base_credit = min(35.0, len(candidate_skills) * 3.5) if candidate_skills else 0.0
+        else:
+            base_credit = min(30.0, len(candidate_skills) * 3) if candidate_skills else 0.0
 
         # Required skills (must have, but less harsh)
         required_score = 0.0
@@ -251,13 +331,23 @@ class ScoringEngine:
         contribution = round(component_score * self.WEIGHTS['skills'] / 100, 2)
         return component_score, contribution
     
-    def _score_experience(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
-        """Score work experience (25% weight) with prestige consideration.
+    def _score_experience(self, candidate: ParsedCandidate, job: JobProfile, job_level: str) -> Tuple[float, float]:
+        """Score work experience (25% weight) with prestige and job-level consideration.
+
+        Args:
+            candidate: Candidate data
+            job: Job requirements
+            job_level: 'intern', 'entry', 'mid', or 'senior'
 
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not candidate.work_experience:
+            # No experience is OK for interns, less OK for others
+            if job_level == 'intern':
+                return 65.0, round(self.WEIGHTS['experience'] * 0.65, 2)
+            elif job_level == 'entry':
+                return 30.0, round(self.WEIGHTS['experience'] * 0.30, 2)
             return 0.0, 0.0
 
         # Calculate total relevant years with recency and prestige weighting
@@ -295,26 +385,43 @@ class ScoringEngine:
             for work in candidate.work_experience
         )
 
-        # Score against requirements
-        if job.min_years_experience:
-            if total_years >= job.min_years_experience:
-                # Meet minimum - use prestige-weighted years for scoring
-                preferred = job.preferred_years_experience or job.min_years_experience * 1.5
-                excess = min(prestige_years - job.min_years_experience, preferred - job.min_years_experience)
-                # Relaxed cap: 95 instead of 90
-                component_score = min(95.0, 75 + (excess / (preferred - job.min_years_experience)) * 20)
+        # Score against requirements - ADJUSTED FOR JOB LEVEL
+        if job_level == 'intern':
+            # For intern roles: any relevant experience is great, even short internships
+            if is_likely_intern or total_years < 1:
+                # Perfect candidate for intern role
+                base_score = 80.0 + (prestige_years / 0.5) * 15  # 6 months at good company = 95
+                component_score = min(95.0, base_score)
             else:
-                # Below minimum but account for prestige
-                base_score = (total_years / job.min_years_experience) * 75
-                # Boost for prestigious companies even if experience is short
-                prestige_boost = (max_prestige - 1.0) * 20
-                component_score = min(85.0, base_score + prestige_boost)
+                # Overqualified but still good
+                component_score = 90.0 + (max_prestige - 1.0) * 5
+
+        elif job_level == 'entry':
+            # For entry-level: 0-2 years is ideal
+            if total_years <= 2:
+                base_score = 75.0 + (prestige_years / 2.0) * 20
+                component_score = min(95.0, base_score)
+            else:
+                # Experienced but applying to entry-level
+                component_score = 85.0
+
         else:
-            # No requirements - score based on experience and prestige
-            if is_likely_intern:
-                # For internships, give more credit (50-80 range)
-                component_score = min(80.0, 50 + (prestige_years / 1.0) * 30)
+            # Mid/Senior roles: use traditional scoring
+            if job.min_years_experience:
+                if total_years >= job.min_years_experience:
+                    # Meet minimum - use prestige-weighted years for scoring
+                    preferred = job.preferred_years_experience or job.min_years_experience * 1.5
+                    excess = min(prestige_years - job.min_years_experience, preferred - job.min_years_experience)
+                    # Relaxed cap: 95 instead of 90
+                    component_score = min(95.0, 75 + (excess / (preferred - job.min_years_experience)) * 20)
+                else:
+                    # Below minimum but account for prestige
+                    base_score = (total_years / job.min_years_experience) * 75
+                    # Boost for prestigious companies even if experience is short
+                    prestige_boost = (max_prestige - 1.0) * 20
+                    component_score = min(85.0, base_score + prestige_boost)
             else:
+                # No requirements - score based on experience and prestige
                 # Regular experience: 6+ years = 90%, prestige can push higher
                 base_score = min(85.0, (weighted_years / 6.0) * 85)
                 prestige_boost = (max_prestige - 1.0) * 10
@@ -325,8 +432,13 @@ class ScoringEngine:
         contribution = round(component_score * self.WEIGHTS['experience'] / 100, 2)
         return component_score, contribution
     
-    def _score_education(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
+    def _score_education(self, candidate: ParsedCandidate, job: JobProfile, job_level: str) -> Tuple[float, float]:
         """Score education (10% weight) with university prestige.
+
+        Args:
+            candidate: Candidate data
+            job: Job requirements
+            job_level: 'intern', 'entry', 'mid', or 'senior'
 
         Returns:
             (component_score 0-100, weighted_contribution)
@@ -407,8 +519,13 @@ class ScoringEngine:
         contribution = round(component_score * self.WEIGHTS['education'] / 100, 2)
         return component_score, contribution
     
-    def _score_certifications(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
+    def _score_certifications(self, candidate: ParsedCandidate, job: JobProfile, job_level: str) -> Tuple[float, float]:
         """Score certifications (5% weight).
+
+        Args:
+            candidate: Candidate data
+            job: Job requirements
+            job_level: 'intern', 'entry', 'mid', or 'senior'
 
         Returns:
             (component_score 0-100, weighted_contribution)
@@ -444,15 +561,44 @@ class ScoringEngine:
         contribution = round(component_score * self.WEIGHTS['certifications'] / 100, 2)
         return component_score, contribution
     
-    def _score_stability(self, candidate: ParsedCandidate) -> Tuple[float, float]:
-        """Score job stability (5% weight).
+    def _score_stability(self, candidate: ParsedCandidate, job_level: str) -> Tuple[float, float]:
+        """Score job stability (5% weight) - job-level aware.
+
+        Args:
+            candidate: Candidate data
+            job_level: 'intern', 'entry', 'mid', or 'senior'
 
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not candidate.work_experience or len(candidate.work_experience) < 2:
+            # Limited history is fine for interns/entry
+            if job_level in ['intern', 'entry']:
+                return round(85.0, 2), round(self.WEIGHTS['stability'] * 0.85, 2)
             return round(75.0, 2), round(self.WEIGHTS['stability'] * 0.75, 2)
 
+        # Detect if candidate's experience is primarily internships/temp roles
+        is_early_career = all(
+            work.duration_months and work.duration_months <= 6
+            for work in candidate.work_experience
+        )
+
+        # For intern/entry-level jobs OR early-career candidates:
+        # Don't penalize short tenures (they're expected!)
+        if job_level in ['intern', 'entry'] or is_early_career:
+            # Check for relevant experience, not tenure length
+            has_multiple_experiences = len(candidate.work_experience) >= 2
+            if has_multiple_experiences:
+                component_score = 85.0  # Good - they've tried different roles
+            else:
+                component_score = 80.0  # Fine - still learning
+
+            # Round to 2 decimal places
+            component_score = round(component_score, 2)
+            contribution = round(component_score * self.WEIGHTS['stability'] / 100, 2)
+            return component_score, contribution
+
+        # For mid/senior roles: traditional stability scoring
         # Calculate average tenure
         tenures = []
         for work in candidate.work_experience:
@@ -465,7 +611,7 @@ class ScoringEngine:
         avg_tenure_months = sum(tenures) / len(tenures)
         avg_tenure_years = avg_tenure_months / 12.0
 
-        # Score based on average tenure (harder to get high scores)
+        # Score based on average tenure
         # 4+ years = 90, 3 years = 85, 2 years = 75, 1-2 years = 60-75
         if avg_tenure_years >= 4.0:
             component_score = 90.0
@@ -478,7 +624,7 @@ class ScoringEngine:
         else:
             component_score = avg_tenure_years * 60.0
 
-        # Penalty for many short stints (job hopping)
+        # Penalty for many short stints (job hopping) - only for mid/senior
         short_stints = sum(1 for t in tenures if t < 12)
         if short_stints >= 3:
             component_score *= 0.7
