@@ -19,6 +19,7 @@ from pathlib import Path
 import logging
 from contextlib import contextmanager
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import (
     SQLAlchemyError,
@@ -136,7 +137,8 @@ class PersistenceService:
         """
         try:
             # Execute a simple query to verify connection
-            result = db.execute("SELECT 1 as health_check")
+            # IMPORTANT: Wrap raw SQL in text() for SQLAlchemy 2.0+
+            result = db.execute(text("SELECT 1 as health_check"))
             row = result.fetchone()
 
             if row is None or row[0] != 1:
