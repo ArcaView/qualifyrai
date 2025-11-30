@@ -5,7 +5,6 @@ from fastapi import APIRouter, HTTPException, status, Request, Depends
 from sqlalchemy.orm import Session
 
 from app.models import JobProfile, ErrorDetail
-from app.middleware.auth import verify_api_key
 from app.database import get_db
 from app.repositories.db_repository import JobProfileRepository
 
@@ -16,7 +15,6 @@ router = APIRouter(prefix="/v1", tags=["Jobs"])
 async def create_job(
     request: Request,
     job: JobProfile,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Create or normalize a job profile.
@@ -86,7 +84,6 @@ async def create_job(
 async def get_job(
     job_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Retrieve a job profile by ID.
@@ -142,7 +139,6 @@ async def get_job(
 async def list_jobs(
     request: Request,
     limit: int = 50,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """List recent job profiles for the current API key.
@@ -186,7 +182,6 @@ async def update_job(
     job_id: str,
     job: JobProfile,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Update a job profile.
@@ -247,7 +242,6 @@ async def update_job(
 async def delete_job(
     job_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Delete a job profile.

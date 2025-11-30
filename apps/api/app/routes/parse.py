@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from app.models import ParseResponse, ParseRequest, ErrorDetail, ParsedCandidate
 from app.parser.core import CVParser
 from app.config import settings
-from app.middleware.auth import verify_api_key
 from app.database import get_db
 from app.repositories.db_repository import ParsedCVRepository
 from app.services.persistence_service import persistence_service, PersistenceError
@@ -26,7 +25,6 @@ async def parse_cv(
     normalize: bool = True,
     return_raw_text: bool = False,
     persist: bool = False,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Parse a CV/resume file to structured JSON.
@@ -93,12 +91,12 @@ async def parse_cv(
         )
 
         if should_persist:
-            # Get API key ID from request state (set by auth middleware)
-            api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
+            # Internal use - no API key tracking
+            api_key_id = None
 
             logger.info(
                 f"Initiating robust persistence for CV: "
-                f"request_id={request_id}, api_key_id={api_key_id}"
+                f"request_id={request_id} (internal use)"
             )
 
             # Use robust persistence service with retry and verification
@@ -181,7 +179,6 @@ async def parse_cv(
 async def get_parsed_cv(
     cv_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Retrieve a previously parsed CV by ID or request_id.
@@ -231,7 +228,6 @@ async def get_parsed_cv(
 async def list_parsed_cvs(
     request: Request,
     limit: int = 50,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """List recent parsed CVs for the current API key.
