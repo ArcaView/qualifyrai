@@ -159,20 +159,6 @@ class ParseScoreAPI {
     });
   }
 
-  async batchParse(files: File[]): Promise<BatchParseResponse> {
-    const formData = new FormData();
-    
-    // Add all CV files
-    files.forEach(file => {
-      formData.append('files', file);
-    });
-
-    return this.request('/v1/batch-parse', {
-      method: 'POST',
-      body: formData,
-    });
-  }
-
   async batchScore(
     files: File[],
     jobTitle: string,

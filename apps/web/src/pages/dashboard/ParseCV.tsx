@@ -122,7 +122,7 @@ const ParseCV = () => {
     setParsing(true);
 
     try {
-      const parseResult = await parseScoreAPI.parseCV(file);
+      const parseResult = await parseScoreAPI.parseCV(file, true);
 
       setResult(parseResult);
 

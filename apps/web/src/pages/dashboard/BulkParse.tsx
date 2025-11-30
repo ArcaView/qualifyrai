@@ -186,7 +186,7 @@ const BulkParse = () => {
 
     try {
       // Call the batch parse API (no scoring)
-      const response = await parseScoreAPI.batchParse(files.map(f => f.file));
+      const response = await parseScoreAPI.batchParse(files.map(f => f.file), true);
 
       let successCount = 0;
 
