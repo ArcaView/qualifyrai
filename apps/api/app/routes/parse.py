@@ -94,22 +94,32 @@ async def parse_cv(
         if should_persist:
             # Get API key ID from request state (set by auth middleware)
             api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
-            
+
             print(f"DEBUG: Attempting to save CV...")
             print(f"  api_key_id: {api_key_id}")
-            # Save parsed CV to database
-            parsed_cv_record = ParsedCVRepository.create(
-                db=db,
-                request_id=request_id,
-                api_key_id=api_key_id,
-                filename=file.filename,
-                file_type=file_ext,
-                parsed_data=candidate.model_dump(mode='json')
-            )
-            
-            # Store the DB ID in the candidate metadata for reference
-            candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
-        
+            print(f"  api_key_data: {api_key_data}")
+
+            # Validate api_key_id exists (database requires it)
+            if not api_key_id:
+                print(f"❌ WARNING: api_key_id is None! Skipping persistence.")
+                print(f"   This is a known issue - CV parsing succeeded but won't be saved to DB")
+                # Don't fail the request - just skip persistence
+                candidate.parsing_metadata['persistence_skipped'] = True
+                candidate.parsing_metadata['skip_reason'] = 'api_key_id_missing'
+            else:
+                # Save parsed CV to database
+                parsed_cv_record = ParsedCVRepository.create(
+                    db=db,
+                    request_id=request_id,
+                    api_key_id=api_key_id,
+                    filename=file.filename,
+                    file_type=file_ext,
+                    parsed_data=candidate.model_dump(mode='json')
+                )
+
+                # Store the DB ID in the candidate metadata for reference
+                candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
+
         # Optionally remove raw text for privacy
         if not return_raw_text and not settings.RETURN_RAW_TEXT:
             candidate.raw_text = None
