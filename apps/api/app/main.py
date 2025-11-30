@@ -25,8 +25,12 @@ async def lifespan(app: FastAPI):
     
     # Initialize database
     print("🗄️  Initializing database connection...")
-    init_db()
-    print("✅ Database ready")
+    try:
+        init_db()
+        print("✅ Database ready")
+    except Exception as e:
+        print(f"⚠️  Database initialization failed: {e}")
+        print("   API will start but database features may not work")
     
     # Initialize Redis (automatic - handled by redis_client module)
     try:
