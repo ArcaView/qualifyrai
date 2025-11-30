@@ -23,9 +23,15 @@ class PrestigeDetector:
     TIER_2_UNIVERSITIES = {
         'manchester', 'edinburgh', 'warwick', 'bristol', 'durham',
         'nottingham', 'birmingham', 'leeds', 'sheffield', 'southampton',
-        'reading',  # Good for some subjects, solid overall
+        'reading',  # Decent overall, has OK finance program
         'ucla', 'michigan', 'virginia', 'texas', 'washington', 'cornell',
         'penn', 'duke', 'northwestern', 'johns hopkins', 'carnegie mellon'
+    }
+
+    # Universities with strong finance/business programs (subject-specific)
+    FINANCE_STRONG_UNIVERSITIES = {
+        'london school of economics', 'lse', 'warwick', 'reading',
+        'cass', 'city university', 'imperial', 'wharton', 'stern'
     }
 
     # Prestigious companies (FAANG, Big 4, major banks, consulting)
@@ -75,6 +81,96 @@ class PrestigeDetector:
         return 1.0
 
     @classmethod
+    def is_finance_strong_university(cls, institution_name: str, field: str) -> bool:
+        """
+        Check if university is known for finance/business programs.
+
+        Args:
+            institution_name: University name
+            field: Field of study
+
+        Returns:
+            True if finance-strong and field is finance-related
+        """
+        if not institution_name or not field:
+            return False
+
+        name_lower = institution_name.lower()
+        field_lower = field.lower()
+
+        # Check if field is finance-related
+        finance_keywords = ['finance', 'accounting', 'economics', 'business', 'banking', 'investment']
+        is_finance_field = any(kw in field_lower for kw in finance_keywords)
+
+        if not is_finance_field:
+            return False
+
+        # Check if university is finance-strong
+        for uni in cls.FINANCE_STRONG_UNIVERSITIES:
+            if uni in name_lower:
+                return True
+
+        return False
+
+    @classmethod
+    def detect_grade_quality(cls, education_record) -> float:
+        """
+        Detect grade quality from education record.
+
+        Returns:
+            Multiplier: 1.3 (First/A*), 1.15 (2:1/A), 1.0 (2:2/B), 0.85 (Third/C), 0.6 (Pass/D), 0.3 (Fail)
+        """
+        # Check GPA field or grades field for indicators
+        grade_text = ""
+        if hasattr(education_record, 'gpa') and education_record.gpa:
+            grade_text = str(education_record.gpa).lower()
+        if hasattr(education_record, 'field') and education_record.field:
+            grade_text += " " + education_record.field.lower()
+        if hasattr(education_record, 'institution') and education_record.institution:
+            grade_text += " " + education_record.institution.lower()
+
+        # UK degree classifications
+        if 'first' in grade_text or '1st' in grade_text:
+            return 1.3
+        if '2:1' in grade_text or 'upper second' in grade_text or '2.1' in grade_text:
+            return 1.15
+        if '2:2' in grade_text or 'lower second' in grade_text or '2.2' in grade_text:
+            return 1.0
+        if 'third' in grade_text or '3rd' in grade_text:
+            return 0.85
+
+        # A-level grades (from field/description)
+        if 'a*a*a*' in grade_text or 'aaa' in grade_text:
+            return 1.3
+        if 'aab' in grade_text or 'abb' in grade_text:
+            return 1.0
+        if 'bbb' in grade_text or 'bbc' in grade_text:
+            return 0.9
+
+        # GPA (US system)
+        try:
+            # Try to extract numeric GPA
+            import re
+            gpa_match = re.search(r'(\d+\.?\d*)\s*gpa', grade_text)
+            if gpa_match:
+                gpa_val = float(gpa_match.group(1))
+                if gpa_val >= 3.8:
+                    return 1.3
+                elif gpa_val >= 3.5:
+                    return 1.15
+                elif gpa_val >= 3.0:
+                    return 1.0
+                elif gpa_val >= 2.5:
+                    return 0.85
+                else:
+                    return 0.6
+        except:
+            pass
+
+        # Default: assume average performance
+        return 1.0
+
+    @classmethod
     def get_company_prestige_multiplier(cls, company_name: str) -> float:
         """
         Get prestige multiplier for a company.
@@ -118,8 +214,8 @@ class ScoringEngine:
     }
 
     # Version tracking for audit
-    RULES_VERSION = "2.1.0"  # Added job-level awareness
-    MODEL_VERSION = "baseline-2.1"
+    RULES_VERSION = "2.2.0"  # Added grade detection, subject-specific prestige, realistic scoring
+    MODEL_VERSION = "baseline-2.2"
 
     # Job level keywords
     INTERN_KEYWORDS = ['intern', 'internship', 'trainee', 'placement', 'summer analyst', 'spring week']
@@ -467,7 +563,13 @@ class ScoringEngine:
         return component_score, contribution
     
     def _score_education(self, candidate: ParsedCandidate, job: JobProfile, job_level: str) -> Tuple[float, float]:
-        """Score education (10% weight) with university prestige.
+        """Score education (10% weight) with university prestige and grades.
+
+        Realistic scoring:
+        - First from Oxford: 92-95
+        - 2:1 from Russell Group: 70-80
+        - ABB from Reading (finance): 60-70
+        - Poor grades/unknown uni: 10-30
 
         Args:
             candidate: Candidate data
@@ -492,10 +594,12 @@ class ScoringEngine:
             EducationLevel.DOCTORATE: 6
         }
 
-        # Get highest candidate degree and best institution prestige
+        # Get highest degree with best prestige and grades
         highest_degree = None
-        best_institution = None
+        best_education = None
         max_prestige = 1.0
+        best_grade_quality = 1.0
+        has_finance_specialty = False
 
         for edu in candidate.education:
             if edu.degree:
@@ -504,49 +608,110 @@ class ScoringEngine:
 
                 if current_rank > highest_rank:
                     highest_degree = edu.degree
-                    best_institution = edu.institution
+                    best_education = edu
 
                 # Track best prestige across all institutions
                 prestige = PrestigeDetector.get_university_prestige_multiplier(edu.institution)
                 max_prestige = max(max_prestige, prestige)
 
-        if not job.min_education:
-            # No requirement, give credit for education + prestige
-            if highest_degree:
-                # Base score by degree level
-                candidate_rank = level_rank.get(highest_degree, 0)
-                base_score = min(80.0, 50 + (candidate_rank * 8))
+                # Check for finance specialty
+                if PrestigeDetector.is_finance_strong_university(edu.institution, edu.field or ''):
+                    has_finance_specialty = True
 
-                # Prestige boost
-                prestige_boost = (max_prestige - 1.0) * 20
-                component_score = min(92.0, base_score + prestige_boost)
+                # Detect grade quality
+                grade_quality = PrestigeDetector.detect_grade_quality(edu)
+                best_grade_quality = max(best_grade_quality, grade_quality)
+
+        if not job.min_education:
+            # No requirement - be more conservative with scoring
+            if highest_degree:
+                # Start with degree level base (much lower than before)
+                candidate_rank = level_rank.get(highest_degree, 0)
+
+                # Base scores by degree level (conservative)
+                if candidate_rank >= 6:  # Doctorate
+                    base_score = 55.0
+                elif candidate_rank >= 5:  # Masters
+                    base_score = 50.0
+                elif candidate_rank >= 4:  # Bachelors
+                    base_score = 45.0
+                elif candidate_rank >= 3:  # Associates
+                    base_score = 35.0
+                else:  # High school/Certificate
+                    base_score = 25.0
+
+                # Apply grade quality multiplier (significant impact)
+                component_score = base_score * best_grade_quality
+
+                # University prestige boost (moderate)
+                if max_prestige >= 1.3:  # Tier 1 (Oxbridge, Harvard, etc.)
+                    prestige_boost = 25.0
+                elif max_prestige >= 1.15:  # Tier 2 (Russell Group, etc.)
+                    prestige_boost = 12.0
+                else:  # Unknown/lower tier
+                    prestige_boost = 5.0
+
+                component_score += prestige_boost
+
+                # Small bonus for subject specialty (finance-strong programs)
+                if has_finance_specialty:
+                    component_score += 5.0
+
+                # Realistic cap: no requirement means education is "nice to have"
+                component_score = min(75.0, component_score)
             else:
-                component_score = 50.0
+                component_score = 30.0
+
             contribution = round(component_score * self.WEIGHTS['education'] / 100, 2)
             return round(component_score, 2), contribution
 
-        # Compare to requirements
+        # Has education requirement - compare to requirements
         min_rank = level_rank.get(job.min_education, 0)
         candidate_rank = level_rank.get(highest_degree, 0) if highest_degree else 0
 
         if candidate_rank >= min_rank:
-            # Meets minimum: base 88 score
-            component_score = 88.0
-
-            # Bonus for exceeding preferred
+            # Meets minimum requirement
+            # Base score varies by how well they meet it
             if job.preferred_education:
                 pref_rank = level_rank.get(job.preferred_education, 0)
                 if candidate_rank >= pref_rank:
-                    component_score = 93.0
+                    base_score = 75.0  # Exceeds preferred
+                else:
+                    base_score = 65.0  # Meets minimum, below preferred
+            else:
+                base_score = 70.0  # Meets minimum
 
-            # Prestige boost (can push to 98)
-            prestige_boost = (max_prestige - 1.0) * 15
-            component_score = min(98.0, component_score + prestige_boost)
+            # Apply grade quality (very important when required)
+            component_score = base_score * best_grade_quality
+
+            # University prestige boost
+            if max_prestige >= 1.3:  # Tier 1
+                component_score += 15.0
+            elif max_prestige >= 1.15:  # Tier 2
+                component_score += 8.0
+
+            # Subject specialty bonus
+            if has_finance_specialty:
+                component_score += 3.0
+
+            # Cap at 95 (reserved for exceptional: First from Oxbridge)
+            component_score = min(95.0, component_score)
         else:
-            # Below minimum but prestige helps
-            base_score = (candidate_rank / min_rank) * 70 if min_rank > 0 else 0.0
-            prestige_boost = (max_prestige - 1.0) * 15
-            component_score = min(80.0, base_score + prestige_boost)
+            # Below minimum requirement
+            if min_rank > 0:
+                shortfall = (candidate_rank / min_rank)
+                base_score = shortfall * 50.0
+            else:
+                base_score = 0.0
+
+            # Grade quality and prestige help but can't overcome deficiency
+            component_score = base_score * best_grade_quality
+            if max_prestige >= 1.3:
+                component_score += 10.0
+            elif max_prestige >= 1.15:
+                component_score += 5.0
+
+            component_score = min(65.0, component_score)
 
         # Round to 2 decimal places
         component_score = round(component_score, 2)
@@ -555,6 +720,9 @@ class ScoringEngine:
     
     def _score_certifications(self, candidate: ParsedCandidate, job: JobProfile, job_level: str) -> Tuple[float, float]:
         """Score certifications (5% weight).
+
+        Realistic scoring when not required: 5-15 (shows initiative but not critical)
+        When required: 0-90 based on match rate
 
         Args:
             candidate: Candidate data
@@ -565,15 +733,18 @@ class ScoringEngine:
             (component_score 0-100, weighted_contribution)
         """
         if not job.required_certifications:
-            # No requirements, give credit for having any (but not perfect)
+            # No requirements - certifications are "nice to have" but minimal impact
             if candidate.certifications:
-                # Having certs is good but not 100%
-                component_score = min(80.0, 50 + len(candidate.certifications) * 10)
+                # Very minimal credit: shows initiative but not required
+                # 1 cert = 8, 2 certs = 12, 3+ certs = 15
+                component_score = min(15.0, 5 + len(candidate.certifications) * 3)
             else:
+                # No certifications when not required is perfectly fine
                 component_score = 50.0
             contribution = round(component_score * self.WEIGHTS['certifications'] / 100, 2)
             return round(component_score, 2), contribution
 
+        # Certifications ARE required - this is important
         if not candidate.certifications:
             return 0.0, 0.0
 
@@ -587,8 +758,9 @@ class ScoringEngine:
                     matches += 1
                     break
 
-        # Cap at 90 instead of 100
-        component_score = min(90.0, (matches / len(job.required_certifications)) * 90)
+        # Cap at 90 (perfect is rare, room for improvement)
+        match_ratio = matches / len(job.required_certifications)
+        component_score = min(90.0, match_ratio * 90)
 
         # Round to 2 decimal places
         component_score = round(component_score, 2)
