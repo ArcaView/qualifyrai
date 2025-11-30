@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db, check_database_health, get_connection_pool_stats
 from app.services.persistence_service import persistence_service
-from app.middleware.auth import verify_api_key
 
 router = APIRouter(prefix="/v1", tags=["Health"])
 logger = logging.getLogger(__name__)
@@ -54,13 +53,11 @@ async def database_health_check(db: Session = Depends(get_db)):
 
 
 @router.get("/health/persistence")
-async def persistence_health_check(
-    api_key_data: dict = Depends(verify_api_key)
-):
+async def persistence_health_check():
     """
     Check persistence service health and backup statistics.
 
-    Requires authentication.
+    Internal monitoring endpoint.
 
     Returns:
         Persistence service status and backup stats
@@ -82,13 +79,12 @@ async def persistence_health_check(
 
 @router.get("/health/full")
 async def full_health_check(
-    db: Session = Depends(get_db),
-    api_key_data: dict = Depends(verify_api_key)
+    db: Session = Depends(get_db)
 ):
     """
     Comprehensive health check of all system components.
 
-    Requires authentication.
+    Internal monitoring endpoint.
 
     Returns:
         Full system health status

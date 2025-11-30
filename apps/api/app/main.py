@@ -19,8 +19,7 @@ START_TIME = time.time()
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
     # Startup
-    print(f"🚀 ParseScore API starting in {settings.APP_ENV} mode...")
-    print(f"📊 Rate limit: {settings.API_RATE_RPM} rpm (burst {settings.API_RATE_BURST})")
+    print(f"🚀 ParseScore Internal API starting in {settings.APP_ENV} mode...")
     print(f"🤖 LLM enabled: {settings.LLM_ENABLED}")
     
     # Initialize database
@@ -36,9 +35,9 @@ async def lifespan(app: FastAPI):
     try:
         from app.redis_client import redis_client
         if redis_client.is_available():
-            print("✅ Redis ready (distributed rate limiting enabled)")
+            print("✅ Redis ready")
         else:
-            print("⚠️  Redis unavailable (using in-memory rate limiting)")
+            print("⚠️  Redis unavailable")
     except Exception as e:
         print(f"⚠️  Redis initialization failed: {e}")
     
@@ -61,18 +60,14 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="ParseScore API",
+    title="ParseScore Internal API",
     version=settings.API_VERSION,
-    description="CV Parser & AI Scoring API - Developer-first, production-ready",
+    description="Internal CV Parser & AI Scoring Service",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
-
-# Rate limiting middleware
-#from app.middleware.rate_limit import RateLimitMiddleware
-#app.add_middleware(RateLimitMiddleware)
 
 # CORS middleware
 app.add_middleware(
@@ -184,7 +179,7 @@ def health():
 def root():
     """Root redirect to docs."""
     return {
-        "message": "ParseScore API",
+        "message": "ParseScore Internal API - For Internal Processing Only",
         "docs": "/docs",
         "health": "/v1/health"
     }
@@ -194,57 +189,10 @@ def root():
 # ROUTE IMPORTS
 # ============================================================================
 
-from app.routes import parse, score, batch, health
+from app.routes import health
 
 # Include routers
-app.include_router(parse.router)
-app.include_router(score.router)
-app.include_router(batch.router)
 app.include_router(health.router)
-
-# ============================================================================
-# PLACEHOLDER ENDPOINTS (to be implemented)
-# ============================================================================
-
-
-@app.post("/v1/jobs", tags=["Jobs"])
-async def create_job(request: Request):
-    """Create or normalize a job profile.
-    
-    **TODO**: Implement job profile normalization.
-    """
-    return {
-        "request_id": request.state.request_id,
-        "message": "Jobs endpoint - coming soon",
-        "status": "not_implemented"
-    }
-
-
-@app.get("/v1/usage", tags=["System"])
-async def get_usage(request: Request):
-    """Get API usage statistics for the current key.
-    
-    **TODO**: Implement usage tracking.
-    """
-    return {
-        "request_id": request.state.request_id,
-        "message": "Usage endpoint - coming soon",
-        "status": "not_implemented"
-    }
-
-
-@app.delete("/v1/candidates/{candidate_id}", tags=["GDPR"])
-async def delete_candidate(candidate_id: str, request: Request):
-    """Delete candidate data (GDPR compliance).
-    
-    **TODO**: Implement data deletion.
-    """
-    return {
-        "request_id": request.state.request_id,
-        "candidate_id": candidate_id,
-        "message": "Delete endpoint - coming soon",
-        "status": "not_implemented"
-    }
 
 
 if __name__ == "__main__":

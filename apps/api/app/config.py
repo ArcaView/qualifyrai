@@ -4,16 +4,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings from environment variables."""
-    
+    """Application settings from environment variables.
+
+    Internal processing API - not for consumer use.
+    """
+
     # App
     APP_ENV: str = "development"
     APP_SECRET: str = "dev-secret-change-in-prod"
     API_VERSION: str = "0.1.0"
-    
-    # Rate limiting
-    API_RATE_RPM: int = 60
-    API_RATE_BURST: int = 120
     
     # File upload limits
     MAX_FILE_MB: int = 5

@@ -233,14 +233,6 @@ class HealthResponse(BaseModel):
     version: str = "0.1.0"
 
 
-class UsageResponse(BaseModel):
-    """Usage statistics for an API key."""
-    requests_today: int
-    requests_this_month: int
-    rate_limit_rpm: int
-    remaining_quota: int
-
-
 # ============================================================================
 # BATCH SCORING MODELS
 # ============================================================================
