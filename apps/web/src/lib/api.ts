@@ -78,13 +78,46 @@ function extractSkillsFromDescription(description: string): { required: string[]
   const commonSkills = [
     'Python', 'JavaScript', 'TypeScript', 'React', 'Node.js', 'Java', 'C++', 'C#',
     'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes', 'SQL', 'PostgreSQL', 'MongoDB',
-    'Git', 'CI/CD', 'Agile', 'Scrum', 'REST', 'API', 'GraphQL', 'Redis',
-    'Machine Learning', 'AI', 'Data Science', 'DevOps', 'Cloud', 'Linux',
+    'Git', 'CI/CD', 'Agile', 'Scrum', 'REST API', 'GraphQL', 'Redis',
+    'Machine Learning', 'Data Science', 'DevOps', 'Linux',
+    // Finance/Business skills
+    'Excel', 'Financial Modeling', 'DCF', 'LBO', 'Valuation', 'Bloomberg',
+    'Capital IQ', 'PowerPoint', 'VBA', 'Tableau', 'Power BI'
   ];
 
-  const foundSkills = commonSkills.filter(skill => 
-    description.toLowerCase().includes(skill.toLowerCase())
-  );
+  // Context patterns that indicate false positives (meta-references, not actual requirements)
+  const falsePositivePatterns = [
+    /\bai[- ]scoring\b/i,        // "AI scoring"
+    /\bai[- ]powered\b/i,         // "AI-powered"
+    /\bai[- ]based\b/i,           // "AI-based"
+    /\bapi\b.*\b(endpoint|call|integration)\b/i, // "API endpoint" (system reference)
+    /\bcloud[- ]based\b/i,        // "cloud-based platform"
+  ];
+
+  const descLower = description.toLowerCase();
+
+  const foundSkills = commonSkills.filter(skill => {
+    const skillLower = skill.toLowerCase();
+
+    // Check if skill appears in description
+    if (!descLower.includes(skillLower)) {
+      return false;
+    }
+
+    // Filter out false positives
+    for (const pattern of falsePositivePatterns) {
+      if (pattern.test(description)) {
+        // Check if this specific skill is part of the false positive
+        const skillPattern = new RegExp(`\\b${skillLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+        const match = pattern.exec(description);
+        if (match && skillPattern.test(match[0])) {
+          return false; // Skip this skill - it's a meta-reference
+        }
+      }
+    }
+
+    return true;
+  });
 
   return {
     required: foundSkills.slice(0, Math.ceil(foundSkills.length * 0.7)), // 70% as required
