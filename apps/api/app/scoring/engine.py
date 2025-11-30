@@ -9,6 +9,90 @@ from app.models import (
 )
 
 
+class PrestigeDetector:
+    """Detect prestige/quality of institutions and companies."""
+
+    # Top-tier universities (global rankings)
+    TIER_1_UNIVERSITIES = {
+        'oxford', 'cambridge', 'harvard', 'stanford', 'mit', 'yale', 'princeton',
+        'caltech', 'berkeley', 'imperial', 'eth zurich', 'university college london',
+        'ucl', 'london school of economics', 'lse', 'columbia', 'chicago'
+    }
+
+    # Strong universities (Russell Group, top US state schools, etc.)
+    TIER_2_UNIVERSITIES = {
+        'manchester', 'edinburgh', 'warwick', 'bristol', 'durham', 'reading',
+        'nottingham', 'birmingham', 'leeds', 'sheffield', 'southampton',
+        'ucla', 'michigan', 'virginia', 'texas', 'washington', 'cornell',
+        'penn', 'duke', 'northwestern', 'johns hopkins', 'carnegie mellon'
+    }
+
+    # Prestigious companies (FAANG, Big 4, major banks, consulting)
+    TIER_1_COMPANIES = {
+        'google', 'apple', 'microsoft', 'amazon', 'meta', 'facebook',
+        'goldman sachs', 'morgan stanley', 'jp morgan', 'jpmorgan',
+        'mckinsey', 'bain', 'bcg', 'boston consulting',
+        'deloitte', 'pwc', 'ey', 'kpmg', 'accenture'
+    }
+
+    # Well-known companies (tech scale-ups, regional banks, boutiques)
+    TIER_2_COMPANIES = {
+        'salesforce', 'adobe', 'oracle', 'ibm', 'uber', 'airbnb',
+        'barclays', 'hsbc', 'citi', 'citigroup', 'credit suisse',
+        'laven partners', 'rothschild', 'lazard', 'evercore'
+    }
+
+    @classmethod
+    def get_university_prestige_multiplier(cls, institution_name: str) -> float:
+        """
+        Get prestige multiplier for a university.
+
+        Returns:
+            1.3 for Tier 1, 1.15 for Tier 2, 1.0 for others
+        """
+        if not institution_name:
+            return 1.0
+
+        name_lower = institution_name.lower()
+
+        # Check Tier 1
+        for uni in cls.TIER_1_UNIVERSITIES:
+            if uni in name_lower:
+                return 1.3
+
+        # Check Tier 2
+        for uni in cls.TIER_2_UNIVERSITIES:
+            if uni in name_lower:
+                return 1.15
+
+        return 1.0
+
+    @classmethod
+    def get_company_prestige_multiplier(cls, company_name: str) -> float:
+        """
+        Get prestige multiplier for a company.
+
+        Returns:
+            1.4 for Tier 1, 1.2 for Tier 2, 1.0 for others
+        """
+        if not company_name:
+            return 1.0
+
+        name_lower = company_name.lower()
+
+        # Check Tier 1
+        for company in cls.TIER_1_COMPANIES:
+            if company in name_lower:
+                return 1.4
+
+        # Check Tier 2
+        for company in cls.TIER_2_COMPANIES:
+            if company in name_lower:
+                return 1.2
+
+        return 1.0
+
+
 class ScoringEngine:
     """Deterministic baseline scoring engine."""
     
@@ -22,8 +106,8 @@ class ScoringEngine:
     }
     
     # Version tracking for audit
-    RULES_VERSION = "1.0.0"
-    MODEL_VERSION = "baseline-1.0"
+    RULES_VERSION = "2.0.0"  # Major update: prestige, flexible matching, context-aware
+    MODEL_VERSION = "baseline-2.0"
     
     def __init__(self):
         """Initialize scoring engine."""
@@ -95,18 +179,26 @@ class ScoringEngine:
         )
     
     def _score_skills(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
-        """Score skills match (55% weight).
+        """Score skills match (55% weight) with flexible matching.
 
         Returns:
             (component_score 0-100, weighted_contribution)
         """
         if not job.required_skills and not job.preferred_skills:
-            # No requirements: give partial credit for having any skills
-            return 75.0, round(self.WEIGHTS['skills'] * 0.75, 2)
+            # No requirements: give credit for having any skills
+            if candidate.skills and len(candidate.skills) > 0:
+                # Scale by number of skills (5+ skills = 80)
+                component_score = min(80.0, 55 + len(candidate.skills) * 5)
+            else:
+                component_score = 50.0
+            return round(component_score, 2), round(self.WEIGHTS['skills'] * component_score / 100, 2)
 
         candidate_skills = {s.name.lower(): s for s in candidate.skills}
 
-        # Required skills (must have, hard penalty if missing)
+        # Give base credit for having ANY skills (reduces harshness)
+        base_credit = min(30.0, len(candidate.skills) * 3) if candidate.skills else 0.0
+
+        # Required skills (must have, but less harsh)
         required_score = 0.0
         if job.required_skills:
             matches = 0.0
@@ -116,10 +208,19 @@ class ScoringEngine:
                     candidate_skills
                 )
                 matches += match_strength
-            # Cap at 95 to make perfect score harder
-            required_score = min(95.0, (matches / len(job.required_skills)) * 100)
+
+            # More generous scoring: even partial matches count
+            match_ratio = matches / len(job.required_skills)
+            if match_ratio >= 0.8:  # 80%+ match
+                required_score = min(95.0, 85 + (match_ratio - 0.8) * 50)
+            elif match_ratio >= 0.5:  # 50-80% match
+                required_score = 70 + (match_ratio - 0.5) * 50
+            elif match_ratio >= 0.3:  # 30-50% match
+                required_score = 50 + (match_ratio - 0.3) * 100
+            else:  # <30% match
+                required_score = base_credit + (match_ratio * 67)
         else:
-            required_score = 80.0  # No requirements = good but not perfect
+            required_score = 85.0  # No requirements = good
 
         # Preferred skills (nice to have, bonus)
         preferred_score = 0.0
@@ -131,14 +232,19 @@ class ScoringEngine:
                     candidate_skills
                 )
                 matches += match_strength
-            # Cap at 90 for preferred skills
-            preferred_score = min(90.0, (matches / len(job.preferred_skills)) * 100)
 
-        # Weighted combination: required is 70%, preferred is 30%
+            match_ratio = matches / len(job.preferred_skills)
+            preferred_score = min(92.0, match_ratio * 92)
+
+        # Weighted combination: required is 65%, preferred is 35% (slightly less harsh on required)
         if job.required_skills:
-            component_score = required_score * 0.7 + preferred_score * 0.3
+            component_score = required_score * 0.65 + preferred_score * 0.35
         else:
             component_score = preferred_score
+
+        # Ensure minimum score if candidate has any relevant skills
+        if component_score < base_credit and candidate.skills:
+            component_score = base_credit
 
         # Round to 2 decimal places
         component_score = round(component_score, 2)
@@ -146,7 +252,7 @@ class ScoringEngine:
         return component_score, contribution
     
     def _score_experience(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
-        """Score work experience (25% weight).
+        """Score work experience (25% weight) with prestige consideration.
 
         Returns:
             (component_score 0-100, weighted_contribution)
@@ -154,14 +260,20 @@ class ScoringEngine:
         if not candidate.work_experience:
             return 0.0, 0.0
 
-        # Calculate total relevant years with recency weighting
+        # Calculate total relevant years with recency and prestige weighting
         total_months = 0
         weighted_months = 0.0
+        prestige_weighted_months = 0.0
         current_year = date.today().year
+        max_prestige = 1.0
 
         for work in candidate.work_experience:
             if work.duration_months:
                 total_months += work.duration_months
+
+                # Get company prestige multiplier
+                prestige_mult = PrestigeDetector.get_company_prestige_multiplier(work.employer)
+                max_prestige = max(max_prestige, prestige_mult)
 
                 # Apply recency decay
                 if work.end_date:
@@ -171,25 +283,42 @@ class ScoringEngine:
                     recency_factor = 1.0  # Current role
 
                 weighted_months += work.duration_months * recency_factor
+                prestige_weighted_months += work.duration_months * recency_factor * prestige_mult
 
         total_years = total_months / 12.0
         weighted_years = weighted_months / 12.0
+        prestige_years = prestige_weighted_months / 12.0
+
+        # Determine if this looks like an internship/entry-level candidate
+        is_likely_intern = all(
+            work.duration_months and work.duration_months <= 6
+            for work in candidate.work_experience
+        )
 
         # Score against requirements
         if job.min_years_experience:
             if total_years >= job.min_years_experience:
-                # Meet minimum, score based on how much experience vs preferred
+                # Meet minimum - use prestige-weighted years for scoring
                 preferred = job.preferred_years_experience or job.min_years_experience * 1.5
-                excess = min(weighted_years - job.min_years_experience, preferred - job.min_years_experience)
-                # Cap at 90 instead of 100 to make perfect score harder
-                component_score = min(90.0, 70 + (excess / (preferred - job.min_years_experience)) * 20)
+                excess = min(prestige_years - job.min_years_experience, preferred - job.min_years_experience)
+                # Relaxed cap: 95 instead of 90
+                component_score = min(95.0, 75 + (excess / (preferred - job.min_years_experience)) * 20)
             else:
-                # Below minimum, proportional penalty
-                component_score = (total_years / job.min_years_experience) * 70
+                # Below minimum but account for prestige
+                base_score = (total_years / job.min_years_experience) * 75
+                # Boost for prestigious companies even if experience is short
+                prestige_boost = (max_prestige - 1.0) * 20
+                component_score = min(85.0, base_score + prestige_boost)
         else:
-            # No requirements, score based on absolute experience
-            # 8+ years = 85% (not 100%), use diminishing returns
-            component_score = min(85.0, (weighted_years / 8.0) * 85)
+            # No requirements - score based on experience and prestige
+            if is_likely_intern:
+                # For internships, give more credit (50-80 range)
+                component_score = min(80.0, 50 + (prestige_years / 1.0) * 30)
+            else:
+                # Regular experience: 6+ years = 90%, prestige can push higher
+                base_score = min(85.0, (weighted_years / 6.0) * 85)
+                prestige_boost = (max_prestige - 1.0) * 10
+                component_score = min(95.0, base_score + prestige_boost)
 
         # Round to 2 decimal places
         component_score = round(component_score, 2)
@@ -197,7 +326,7 @@ class ScoringEngine:
         return component_score, contribution
     
     def _score_education(self, candidate: ParsedCandidate, job: JobProfile) -> Tuple[float, float]:
-        """Score education (10% weight).
+        """Score education (10% weight) with university prestige.
 
         Returns:
             (component_score 0-100, weighted_contribution)
@@ -217,18 +346,34 @@ class ScoringEngine:
             EducationLevel.DOCTORATE: 6
         }
 
-        # Get highest candidate degree
+        # Get highest candidate degree and best institution prestige
         highest_degree = None
+        best_institution = None
+        max_prestige = 1.0
+
         for edu in candidate.education:
-            if edu.degree and (not highest_degree or level_rank.get(edu.degree, 0) > level_rank.get(highest_degree, 0)):
-                highest_degree = edu.degree
+            if edu.degree:
+                current_rank = level_rank.get(edu.degree, 0)
+                highest_rank = level_rank.get(highest_degree, 0) if highest_degree else 0
+
+                if current_rank > highest_rank:
+                    highest_degree = edu.degree
+                    best_institution = edu.institution
+
+                # Track best prestige across all institutions
+                prestige = PrestigeDetector.get_university_prestige_multiplier(edu.institution)
+                max_prestige = max(max_prestige, prestige)
 
         if not job.min_education:
-            # No requirement, give credit for having education (but not perfect)
+            # No requirement, give credit for education + prestige
             if highest_degree:
-                # Scale based on degree level: Bachelors=70, Masters=80, Doctorate=85
+                # Base score by degree level
                 candidate_rank = level_rank.get(highest_degree, 0)
-                component_score = min(85.0, 50 + (candidate_rank * 10))
+                base_score = min(80.0, 50 + (candidate_rank * 8))
+
+                # Prestige boost
+                prestige_boost = (max_prestige - 1.0) * 20
+                component_score = min(92.0, base_score + prestige_boost)
             else:
                 component_score = 50.0
             contribution = round(component_score * self.WEIGHTS['education'] / 100, 2)
@@ -239,16 +384,23 @@ class ScoringEngine:
         candidate_rank = level_rank.get(highest_degree, 0) if highest_degree else 0
 
         if candidate_rank >= min_rank:
-            # Meets minimum: 85 base score
-            component_score = 85.0
-            # Small bonus for exceeding preferred (max 92)
+            # Meets minimum: base 88 score
+            component_score = 88.0
+
+            # Bonus for exceeding preferred
             if job.preferred_education:
                 pref_rank = level_rank.get(job.preferred_education, 0)
                 if candidate_rank >= pref_rank:
-                    component_score = 92.0
+                    component_score = 93.0
+
+            # Prestige boost (can push to 98)
+            prestige_boost = (max_prestige - 1.0) * 15
+            component_score = min(98.0, component_score + prestige_boost)
         else:
-            # Below minimum
-            component_score = (candidate_rank / min_rank) * 70 if min_rank > 0 else 0.0
+            # Below minimum but prestige helps
+            base_score = (candidate_rank / min_rank) * 70 if min_rank > 0 else 0.0
+            prestige_boost = (max_prestige - 1.0) * 15
+            component_score = min(80.0, base_score + prestige_boost)
 
         # Round to 2 decimal places
         component_score = round(component_score, 2)
@@ -399,50 +551,111 @@ class ScoringEngine:
 
 class SkillMatcher:
     """Fuzzy skill matching with canonical taxonomy support."""
-    
+
     def __init__(self):
-        """Initialize skill matcher."""
-        # TODO: Load from taxonomy file
+        """Initialize skill matcher with expanded synonyms."""
+        # Expanded skill synonyms for better matching
         self.synonyms = {
-            'python': ['python3', 'py'],
-            'javascript': ['js', 'javascript', 'ecmascript'],
-            'aws': ['amazon web services', 'aws'],
+            # Programming
+            'python': ['python', 'python3', 'py'],
+            'javascript': ['js', 'javascript', 'ecmascript', 'node', 'nodejs'],
+            'java': ['java'],
+            'csharp': ['c#', 'csharp', 'c-sharp', '.net'],
+            'sql': ['sql', 'structured query language', 'database'],
+
+            # Cloud & DevOps
+            'aws': ['amazon web services', 'aws', 'amazon cloud'],
             'gcp': ['google cloud', 'google cloud platform', 'gcp'],
+            'azure': ['azure', 'microsoft azure'],
             'kubernetes': ['k8s', 'kubernetes'],
-            'docker': ['docker', 'containerization'],
+            'docker': ['docker', 'containerization', 'containers'],
+
+            # Databases
             'postgresql': ['postgres', 'postgresql', 'psql'],
+            'mysql': ['mysql'],
+            'mongodb': ['mongo', 'mongodb'],
+
+            # Web frameworks
             'react': ['reactjs', 'react.js', 'react'],
+            'angular': ['angular', 'angularjs'],
+            'vue': ['vue', 'vuejs', 'vue.js'],
+
+            # Finance & Business
+            'excel': ['excel', 'microsoft excel', 'spreadsheets'],
+            'financial_modeling': ['financial modeling', 'financial modelling', 'modeling', 'modelling'],
+            'financial_analysis': ['financial analysis', 'finance', 'financial'],
+            'accounting': ['accounting', 'accountancy'],
+            'valuation': ['valuation', 'company valuation', 'dcf'],
+            'portfolio_management': ['portfolio management', 'portfolio', 'investment management'],
+            'risk_management': ['risk management', 'risk'],
+            'data_analysis': ['data analysis', 'analytics', 'data analytics'],
+            'powerpoint': ['powerpoint', 'presentations', 'ppt'],
+            'communication': ['communication', 'presentation', 'writing'],
         }
-    
+
+        # Common skill categories for broader matching
+        self.categories = {
+            'finance': ['finance', 'financial', 'accounting', 'investment', 'banking'],
+            'programming': ['programming', 'coding', 'development', 'software'],
+            'data': ['data', 'analytics', 'analysis', 'statistics'],
+            'cloud': ['cloud', 'aws', 'azure', 'gcp'],
+        }
+
     def match_skill(self, required: str, candidate_skills: Dict[str, any]) -> float:
-        """Match a required skill against candidate skills.
-        
+        """Match a required skill against candidate skills with flexible matching.
+
         Args:
             required: Required skill name
             candidate_skills: Dict of candidate skill names (lowercase) -> Skill objects
-            
+
         Returns:
-            Match strength: 1.0 (exact), 0.8 (synonym), 0.5 (fuzzy), 0.0 (no match)
+            Match strength: 1.0 (exact), 0.85 (synonym), 0.7 (fuzzy high), 0.5 (fuzzy med), 0.3 (fuzzy low)
         """
-        required_lower = required.lower()
-        
+        required_lower = required.lower().strip()
+
         # Exact match
         if required_lower in candidate_skills:
             return 1.0
-        
+
+        # Check if any candidate skill contains the required skill (or vice versa)
+        for cand_skill in candidate_skills.keys():
+            if required_lower in cand_skill or cand_skill in required_lower:
+                # Partial containment (e.g., "financial" matches "financial analysis")
+                return 0.9
+
         # Synonym match
         for canonical, syns in self.synonyms.items():
             if required_lower in syns or required_lower == canonical:
                 for syn in syns:
                     if syn in candidate_skills:
-                        return 0.8
-        
-        # Fuzzy match
+                        return 0.85
+                    # Check partial matches in synonyms
+                    for cand_skill in candidate_skills.keys():
+                        if syn in cand_skill or cand_skill in syn:
+                            return 0.8
+
+        # Category match (broader matching)
+        for category, keywords in self.categories.items():
+            if any(kw in required_lower for kw in keywords):
+                for cand_skill in candidate_skills.keys():
+                    if any(kw in cand_skill for kw in keywords):
+                        return 0.6
+
+        # Fuzzy match with more generous thresholds
+        best_ratio = 0
         for cand_skill in candidate_skills.keys():
             ratio = fuzz.ratio(required_lower, cand_skill)
-            if ratio > 85:
-                return 0.6
-            elif ratio > 70:
-                return 0.4
-        
+            best_ratio = max(best_ratio, ratio)
+
+            # Also try partial ratio for better matching
+            partial_ratio = fuzz.partial_ratio(required_lower, cand_skill)
+            best_ratio = max(best_ratio, partial_ratio * 0.9)  # Slightly lower weight for partial
+
+        if best_ratio > 80:
+            return 0.7
+        elif best_ratio > 65:
+            return 0.5
+        elif best_ratio > 50:
+            return 0.3
+
         return 0.0
