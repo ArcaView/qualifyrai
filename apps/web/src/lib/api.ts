@@ -101,8 +101,12 @@ function getFitLevel(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
  * Get matched skills from candidate
  */
 function getMatchedSkills(candidate: any, requiredSkills: string[]): string[] {
-  const candidateSkills = (candidate.skills || []).map((s: string) => s.toLowerCase());
-  return requiredSkills.filter(skill => 
+  // Skills are objects with 'name' property, not plain strings
+  const candidateSkills = (candidate.skills || [])
+    .map((s: any) => s.name?.toLowerCase() || (typeof s === 'string' ? s.toLowerCase() : ''))
+    .filter((s: string) => s.length > 0);
+
+  return requiredSkills.filter(skill =>
     candidateSkills.some(cs => cs.includes(skill.toLowerCase()) || skill.toLowerCase().includes(cs))
   );
 }
