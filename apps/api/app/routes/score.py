@@ -9,7 +9,6 @@ from app.models import ScoreRequest, ScoreResponse, ScoringMode, ErrorDetail
 from app.scoring.engine import ScoringEngine
 from app.scoring.llm_scorer import get_llm_scorer
 from app.config import settings
-from app.middleware.auth import verify_api_key
 from app.database import get_db
 from app.repositories.db_repository import ScoringResultRepository, ParsedCVRepository
 
@@ -23,7 +22,6 @@ scorer = ScoringEngine()
 async def score_candidate(
     request: Request,
     score_request: ScoreRequest,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Score a candidate against a job profile.
@@ -180,7 +178,6 @@ async def score_candidate(
 async def get_scoring_result(
     score_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Retrieve a scoring result by ID."""
@@ -227,7 +224,6 @@ async def get_scoring_result(
 async def list_cv_scores(
     cv_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """List all scoring results for a specific CV."""

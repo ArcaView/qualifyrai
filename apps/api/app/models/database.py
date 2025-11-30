@@ -38,12 +38,12 @@ class ParsedCV(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     request_id = Column(String(36), nullable=False, index=True)
-    api_key_id = Column(String(36), ForeignKey('api_keys.id'), nullable=False)
+    api_key_id = Column(String(36), ForeignKey('api_keys.id'), nullable=True)  # Nullable for internal API
     filename = Column(String(500), nullable=False)
     file_type = Column(String(10), nullable=False)  # pdf, docx, txt
     parsed_data = Column(JSON, nullable=False)  # Full ParsedCV schema as JSON
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    
+
     # Relationships
     api_key = relationship("ApiKey", back_populates="parsed_cvs")
     scoring_results = relationship("ScoringResult", back_populates="parsed_cv")

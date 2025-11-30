@@ -14,7 +14,6 @@ from app.parser.core import CVParser
 from app.scoring.engine import ScoringEngine
 from app.scoring.llm_scorer import get_llm_scorer
 from app.config import settings
-from app.middleware.auth import verify_api_key
 from app.database import get_db
 
 router = APIRouter(prefix="/v1", tags=["Batch Operations"])
@@ -49,7 +48,6 @@ class BatchParseResponse(BaseModel):
 async def batch_parse_cvs(
     request: Request,
     files: List[UploadFile] = File(..., description="CV files (PDF/DOCX/DOC/TXT, max 50)"),
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Parse multiple CVs without scoring.
@@ -224,7 +222,6 @@ async def batch_score_cvs(
     preferred_skills: str = Form(default="", description="Comma-separated preferred skills"),
     min_years_experience: float = Form(default=0, description="Minimum years of experience"),
     min_education: str = Form(default=None, description="Minimum education level"),
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Score multiple CVs against a single job description with detailed LLM reviews.

@@ -10,11 +10,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_SECRET: str = "dev-secret-change-in-prod"
     API_VERSION: str = "0.1.0"
-    
-    # Rate limiting
-    API_RATE_RPM: int = 60
-    API_RATE_BURST: int = 120
-    
+
     # File upload limits
     MAX_FILE_MB: int = 5
     MAX_PAGES: int = 12

@@ -5,7 +5,6 @@ from fastapi import APIRouter, HTTPException, status, Request, Depends
 from sqlalchemy.orm import Session
 
 from app.models import JobProfile, ErrorDetail
-from app.middleware.auth import verify_api_key
 from app.database import get_db
 from app.repositories.db_repository import JobProfileRepository
 
@@ -16,27 +15,26 @@ router = APIRouter(prefix="/v1", tags=["Jobs"])
 async def create_job(
     request: Request,
     job: JobProfile,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Create or normalize a job profile.
-    
+
     Args:
         job: Job profile with requirements
-        
+
     Returns:
         Created job profile with ID
-        
+
     Raises:
         422: Invalid job data
     """
     start_time = time.time()
     request_id = request.state.request_id
-    
+
     try:
-        # Get API key ID
-        api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
-        
+        # Internal single-user API - no API key needed
+        api_key_id = None
+
         # Save job to database
         job_record = JobProfileRepository.create(
             db=db,
@@ -86,7 +84,6 @@ async def create_job(
 async def get_job(
     job_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Retrieve a job profile by ID.
@@ -142,24 +139,22 @@ async def get_job(
 async def list_jobs(
     request: Request,
     limit: int = 50,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
-    """List recent job profiles for the current API key.
-    
+    """List recent job profiles.
+
     Args:
         limit: Maximum number of jobs to return (default 50)
-        
+
     Returns:
         List of job profile metadata
     """
     request_id = request.state.request_id
-    api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
-    
-    # Retrieve recent jobs
+
+    # Retrieve recent jobs (internal API - no user filtering)
     job_records = JobProfileRepository.list_recent(
         db=db,
-        api_key_id=api_key_id,
+        api_key_id=None,
         limit=min(limit, 100)  # Cap at 100
     )
     
@@ -186,7 +181,6 @@ async def update_job(
     job_id: str,
     job: JobProfile,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Update a job profile.
@@ -247,7 +241,6 @@ async def update_job(
 async def delete_job(
     job_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Delete a job profile.

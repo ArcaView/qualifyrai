@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from app.models import ParseResponse, ParseRequest, ErrorDetail, ParsedCandidate
 from app.parser.core import CVParser
 from app.config import settings
-from app.middleware.auth import verify_api_key
 from app.database import get_db
 from app.repositories.db_repository import ParsedCVRepository
 
@@ -23,7 +22,6 @@ async def parse_cv(
     normalize: bool = True,
     return_raw_text: bool = False,
     persist: bool = False,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Parse a CV/resume file to structured JSON.
@@ -82,43 +80,22 @@ async def parse_cv(
         # Persist to database if requested or configured
         should_persist = persist or settings.PERSIST_DEFAULT
 
-        # DEBUG LOGGING
-        print(f"\n=== PARSE DEBUG ===")
-        print(f"persist param: {persist}")
-        print(f"PERSIST_DEFAULT: {settings.PERSIST_DEFAULT}")
-        print(f"should_persist: {should_persist}")
-        print(f"api_key_data keys: {list(api_key_data.keys())}")
-        print(f"api_key_data: {api_key_data}")
-        print(f"==================\n")
-
         if should_persist:
-            # Get API key ID from request state (set by auth middleware)
-            api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
+            # Internal single-user API - no API key needed
+            api_key_id = None
 
-            print(f"DEBUG: Attempting to save CV...")
-            print(f"  api_key_id: {api_key_id}")
-            print(f"  api_key_data: {api_key_data}")
+            # Save parsed CV to database
+            parsed_cv_record = ParsedCVRepository.create(
+                db=db,
+                request_id=request_id,
+                api_key_id=api_key_id,
+                filename=file.filename,
+                file_type=file_ext,
+                parsed_data=candidate.model_dump(mode='json')
+            )
 
-            # Validate api_key_id exists (database requires it)
-            if not api_key_id:
-                print(f"❌ WARNING: api_key_id is None! Skipping persistence.")
-                print(f"   This is a known issue - CV parsing succeeded but won't be saved to DB")
-                # Don't fail the request - just skip persistence
-                candidate.parsing_metadata['persistence_skipped'] = True
-                candidate.parsing_metadata['skip_reason'] = 'api_key_id_missing'
-            else:
-                # Save parsed CV to database
-                parsed_cv_record = ParsedCVRepository.create(
-                    db=db,
-                    request_id=request_id,
-                    api_key_id=api_key_id,
-                    filename=file.filename,
-                    file_type=file_ext,
-                    parsed_data=candidate.model_dump(mode='json')
-                )
-
-                # Store the DB ID in the candidate metadata for reference
-                candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
+            # Store the DB ID in the candidate metadata for reference
+            candidate.parsing_metadata['cv_id'] = parsed_cv_record.id
 
         # Optionally remove raw text for privacy
         if not return_raw_text and not settings.RETURN_RAW_TEXT:
@@ -161,7 +138,6 @@ async def parse_cv(
 async def get_parsed_cv(
     cv_id: str,
     request: Request,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
     """Retrieve a previously parsed CV by ID or request_id.
@@ -211,24 +187,22 @@ async def get_parsed_cv(
 async def list_parsed_cvs(
     request: Request,
     limit: int = 50,
-    api_key_data: dict = Depends(verify_api_key),
     db: Session = Depends(get_db)
 ):
-    """List recent parsed CVs for the current API key.
-    
+    """List recent parsed CVs.
+
     Args:
         limit: Maximum number of CVs to return (default 50)
-        
+
     Returns:
         List of parsed CV metadata
     """
     request_id = request.state.request_id
-    api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
-    
-    # Retrieve recent CVs
+
+    # Retrieve recent CVs (internal API - no user filtering)
     cv_records = ParsedCVRepository.list_recent(
         db=db,
-        api_key_id=api_key_id,
+        api_key_id=None,
         limit=min(limit, 100)  # Cap at 100
     )
     
