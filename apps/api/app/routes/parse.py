@@ -91,12 +91,12 @@ async def parse_cv(
         )
 
         if should_persist:
-            # Get API key ID from request state (set by auth middleware)
-            api_key_id = api_key_data.get('id') or api_key_data.get('user_id')
+            # Internal use - no API key tracking
+            api_key_id = None
 
             logger.info(
                 f"Initiating robust persistence for CV: "
-                f"request_id={request_id}, api_key_id={api_key_id}"
+                f"request_id={request_id} (internal use)"
             )
 
             # Use robust persistence service with retry and verification
