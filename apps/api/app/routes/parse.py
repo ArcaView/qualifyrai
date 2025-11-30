@@ -109,6 +109,10 @@ async def parse_cv(
                     parsed_data=candidate.model_dump(mode='json')
                 )
 
+                # Force commit and flush to ensure persistence
+                db.flush()
+                db.commit()
+
                 print(f"✅ CV saved to database with ID: {parsed_cv_record.id}")
 
                 # Store the DB ID in the candidate metadata for reference
