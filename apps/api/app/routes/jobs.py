@@ -32,15 +32,31 @@ async def create_job(
     request_id = request.state.request_id
 
     try:
-        # Internal single-user API - no API key needed
-        api_key_id = None
+        # Prepare requirements dict for repository
+        requirements = {
+            "required_skills": job.required_skills,
+            "preferred_skills": job.preferred_skills,
+            "min_years_experience": job.min_years_experience,
+            "preferred_years_experience": job.preferred_years_experience,
+            "min_education": job.min_education,
+            "preferred_education": job.preferred_education,
+            "required_certifications": job.required_certifications
+        }
+
+        # Prepare metadata
+        metadata = {
+            "location": job.location,
+            "remote_ok": job.remote_ok,
+            **job.job_metadata
+        }
 
         # Save job to database
         job_record = JobProfileRepository.create(
             db=db,
-            request_id=request_id,
-            api_key_id=api_key_id,
-            job_data=job.model_dump()
+            title=job.title,
+            description=job.description,
+            requirements=requirements,
+            job_metadata=metadata
         )
         
         processing_time = (time.time() - start_time) * 1000
@@ -51,16 +67,16 @@ async def create_job(
             "job": JobProfile(
                 title=job_record.title,
                 description=job_record.description,
-                required_skills=job_record.required_skills,
-                preferred_skills=job_record.preferred_skills,
-                min_years_experience=float(job_record.min_years_experience) if job_record.min_years_experience else None,
-                preferred_years_experience=float(job_record.preferred_years_experience) if job_record.preferred_years_experience else None,
-                min_education=job_record.min_education,
-                preferred_education=job_record.preferred_education,
-                required_certifications=job_record.required_certifications,
-                location=job_record.location,
-                remote_ok=bool(job_record.remote_ok),
-                metadata=job_record.metadata
+                required_skills=job_record.requirements.get("required_skills", []),
+                preferred_skills=job_record.requirements.get("preferred_skills", []),
+                min_years_experience=job_record.requirements.get("min_years_experience"),
+                preferred_years_experience=job_record.requirements.get("preferred_years_experience"),
+                min_education=job_record.requirements.get("min_education"),
+                preferred_education=job_record.requirements.get("preferred_education"),
+                required_certifications=job_record.requirements.get("required_certifications", []),
+                location=job_record.job_metadata.get("location"),
+                remote_ok=job_record.job_metadata.get("remote_ok", False),
+                job_metadata={k: v for k, v in job_record.job_metadata.items() if k not in ["location", "remote_ok"]}
             ),
             "created_at": job_record.created_at.isoformat(),
             "processing_time_ms": round(processing_time, 2)
@@ -119,16 +135,16 @@ async def get_job(
         "job": JobProfile(
             title=job_record.title,
             description=job_record.description,
-            required_skills=job_record.required_skills,
-            preferred_skills=job_record.preferred_skills,
-            min_years_experience=float(job_record.min_years_experience) if job_record.min_years_experience else None,
-            preferred_years_experience=float(job_record.preferred_years_experience) if job_record.preferred_years_experience else None,
-            min_education=job_record.min_education,
-            preferred_education=job_record.preferred_education,
-            required_certifications=job_record.required_certifications,
-            location=job_record.location,
-            remote_ok=bool(job_record.remote_ok),
-            metadata=job_record.metadata
+            required_skills=job_record.requirements.get("required_skills", []),
+            preferred_skills=job_record.requirements.get("preferred_skills", []),
+            min_years_experience=job_record.requirements.get("min_years_experience"),
+            preferred_years_experience=job_record.requirements.get("preferred_years_experience"),
+            min_education=job_record.requirements.get("min_education"),
+            preferred_education=job_record.requirements.get("preferred_education"),
+            required_certifications=job_record.requirements.get("required_certifications", []),
+            location=job_record.job_metadata.get("location"),
+            remote_ok=job_record.job_metadata.get("remote_ok", False),
+            job_metadata={k: v for k, v in job_record.job_metadata.items() if k not in ["location", "remote_ok"]}
         ),
         "created_at": job_record.created_at.isoformat(),
         "updated_at": job_record.updated_at.isoformat()
@@ -152,9 +168,9 @@ async def list_jobs(
     request_id = request.state.request_id
 
     # Retrieve recent jobs (internal API - no user filtering)
-    job_records = JobProfileRepository.list_recent(
+    job_records = JobProfileRepository.list_all(
         db=db,
-        api_key_id=None,
+        skip=0,
         limit=min(limit, 100)  # Cap at 100
     )
     
@@ -165,9 +181,9 @@ async def list_jobs(
             {
                 "job_id": job.id,
                 "title": job.title,
-                "location": job.location,
-                "remote_ok": bool(job.remote_ok),
-                "required_skills_count": len(job.required_skills),
+                "location": job.job_metadata.get("location"),
+                "remote_ok": job.job_metadata.get("remote_ok", False),
+                "required_skills_count": len(job.requirements.get("required_skills", [])),
                 "created_at": job.created_at.isoformat(),
                 "updated_at": job.updated_at.isoformat()
             }
@@ -209,29 +225,50 @@ async def update_job(
             ).model_dump()
         )
     
+    # Prepare requirements dict
+    requirements = {
+        "required_skills": job.required_skills,
+        "preferred_skills": job.preferred_skills,
+        "min_years_experience": job.min_years_experience,
+        "preferred_years_experience": job.preferred_years_experience,
+        "min_education": job.min_education,
+        "preferred_education": job.preferred_education,
+        "required_certifications": job.required_certifications
+    }
+
+    # Prepare metadata
+    metadata = {
+        "location": job.location,
+        "remote_ok": job.remote_ok,
+        **job.job_metadata
+    }
+
     # Update job
     updated_job = JobProfileRepository.update(
         db=db,
         job_id=job_id,
-        job_data=job.model_dump()
+        title=job.title,
+        description=job.description,
+        requirements=requirements,
+        job_metadata=metadata
     )
-    
+
     return {
         "request_id": request_id,
         "job_id": updated_job.id,
         "job": JobProfile(
             title=updated_job.title,
             description=updated_job.description,
-            required_skills=updated_job.required_skills,
-            preferred_skills=updated_job.preferred_skills,
-            min_years_experience=float(updated_job.min_years_experience) if updated_job.min_years_experience else None,
-            preferred_years_experience=float(updated_job.preferred_years_experience) if updated_job.preferred_years_experience else None,
-            min_education=updated_job.min_education,
-            preferred_education=updated_job.preferred_education,
-            required_certifications=updated_job.required_certifications,
-            location=updated_job.location,
-            remote_ok=bool(updated_job.remote_ok),
-            metadata=updated_job.metadata
+            required_skills=updated_job.requirements.get("required_skills", []),
+            preferred_skills=updated_job.requirements.get("preferred_skills", []),
+            min_years_experience=updated_job.requirements.get("min_years_experience"),
+            preferred_years_experience=updated_job.requirements.get("preferred_years_experience"),
+            min_education=updated_job.requirements.get("min_education"),
+            preferred_education=updated_job.requirements.get("preferred_education"),
+            required_certifications=updated_job.requirements.get("required_certifications", []),
+            location=updated_job.job_metadata.get("location"),
+            remote_ok=updated_job.job_metadata.get("remote_ok", False),
+            job_metadata={k: v for k, v in updated_job.job_metadata.items() if k not in ["location", "remote_ok"]}
         ),
         "updated_at": updated_job.updated_at.isoformat()
     }
