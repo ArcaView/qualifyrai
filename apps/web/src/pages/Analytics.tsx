@@ -81,7 +81,6 @@ const Analytics = () => {
         <Tabs defaultValue="recruitment" className="space-y-6">
           <TabsList>
             <TabsTrigger value="recruitment">Recruitment Metrics</TabsTrigger>
-            <TabsTrigger value="api">Developer Metrics</TabsTrigger>
           </TabsList>
 
           {/* Recruitment View */}
@@ -173,102 +172,6 @@ const Analytics = () => {
                     <div className="text-center">
                       <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
                       <p>Hiring trends will be displayed here</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* API/Developer View */}
-          <TabsContent value="api" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {apiStats.map((stat, index) => {
-                const Icon = stat.icon;
-                const isPositive = stat.change.startsWith('+') || (stat.change.startsWith('-') && stat.title.includes('Response'));
-                return (
-                  <Card key={index}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
-                        {stat.title}
-                      </CardTitle>
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{stat.value}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        <span className={isPositive ? "text-green-600" : "text-muted-foreground"}>{stat.change}</span> from {stat.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>API Usage Over Time</CardTitle>
-                  <CardDescription>
-                    Track your API calls and usage patterns
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <Activity className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                      <p>API usage charts will be displayed here</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Response Time Trends</CardTitle>
-                  <CardDescription>
-                    Monitor API performance and latency metrics
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                      <p>Performance metrics will be displayed here</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Endpoint Usage</CardTitle>
-                  <CardDescription>
-                    Most frequently called API endpoints
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <Code className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                      <p>Endpoint usage will be displayed here</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Error Rates</CardTitle>
-                  <CardDescription>
-                    Track errors and failed requests by type
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64 flex items-center justify-center text-muted-foreground">
-                    <div className="text-center">
-                      <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                      <p>Error analytics will be displayed here</p>
                     </div>
                   </div>
                 </CardContent>
