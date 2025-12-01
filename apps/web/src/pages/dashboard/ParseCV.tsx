@@ -145,7 +145,13 @@ const ParseCV = () => {
         linkedin_url: contact.linkedin_url || parsedCandidate.linkedin_url,
         portfolio_url: contact.portfolio_url || parsedCandidate.website_url,
         // Store the entire parsed candidate object for reference
-        cv_parsed_data: parsedCandidate
+        cv_parsed_data: parsedCandidate,
+        // Include scoring data if available
+        ...(scoreResult && {
+          score: scoreResult.overall_score,
+          score_breakdown: scoreResult.breakdown,
+          fit: scoreResult.fit
+        })
       };
 
       addCandidateToRole(selectedRole, candidateData);
