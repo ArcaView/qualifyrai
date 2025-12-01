@@ -20,7 +20,6 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
     # Startup
     print(f"🚀 ParseScore API starting in {settings.APP_ENV} mode...")
-    print(f"📊 Rate limit: {settings.API_RATE_RPM} rpm (burst {settings.API_RATE_BURST})")
     print(f"🤖 LLM enabled: {settings.LLM_ENABLED}")
     
     # Initialize database
@@ -32,9 +31,9 @@ async def lifespan(app: FastAPI):
     try:
         from app.redis_client import redis_client
         if redis_client.is_available():
-            print("✅ Redis ready (distributed rate limiting enabled)")
+            print("✅ Redis ready (caching enabled)")
         else:
-            print("⚠️  Redis unavailable (using in-memory rate limiting)")
+            print("⚠️  Redis unavailable (caching disabled)")
     except Exception as e:
         print(f"⚠️  Redis initialization failed: {e}")
     
