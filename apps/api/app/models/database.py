@@ -34,7 +34,7 @@ class ApiKey(Base):
 
 class ParsedCV(Base):
     """Parsed CV storage."""
-    __tablename__ = "parsed_cvs"
+    __tablename__ = "ps_parsed_cvs"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     request_id = Column(String(36), nullable=False, index=True)
@@ -61,7 +61,7 @@ class ScoringResult(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     request_id = Column(String(36), nullable=False, index=True)
-    parsed_cv_id = Column(String(36), ForeignKey('parsed_cvs.id'), nullable=False)
+    parsed_cv_id = Column(String(36), ForeignKey('ps_parsed_cvs.id'), nullable=False)
     job_description_hash = Column(String(64), nullable=False)  # Hash of job desc for dedup
     overall_score = Column(Numeric(5, 2), nullable=False)  # Changed from Integer to Numeric(5,2)
     component_scores = Column(JSON, nullable=False)  # Dict of category scores
