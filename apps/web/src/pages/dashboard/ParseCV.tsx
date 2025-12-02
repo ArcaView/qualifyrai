@@ -36,7 +36,7 @@ import {
   Sparkles,
   ArrowRight,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoles } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { parseScoreAPI } from "@/lib/api";
@@ -72,6 +72,9 @@ const ParseCV = () => {
   const [newRoleTitle, setNewRoleTitle] = useState("");
   const [showProcessing, setShowProcessing] = useState(false);
 
+  // Track background parsing promise to avoid duplicate API calls
+  const backgroundParsePromise = useRef<Promise<any> | null>(null);
+
   // Load usage data on mount
   useEffect(() => {
     loadUsageData();
@@ -101,15 +104,17 @@ const ParseCV = () => {
       setShowProcessing(false);
 
       // Silently start parsing in background - no user indication
-      // This makes parsing feel instant when they click "Parse CV"
-      (async () => {
+      // Store promise to avoid duplicate parsing if user clicks button quickly
+      backgroundParsePromise.current = (async () => {
         try {
           const parseResult = await parseScoreAPI.parseCV(selectedFile, true);
           setResult(parseResult);
+          return parseResult;
         } catch (error: any) {
           // Silently fail - will retry when user clicks Parse button
           console.error('Background parse failed:', error);
           setResult(null);
+          return null;
         }
       })();
     }
@@ -133,11 +138,18 @@ const ParseCV = () => {
     }
 
     try {
-      // If background parsing hasn't completed yet, parse now
       let parseResult = result;
+
+      // If we don't have a result yet, check if background parsing is in progress
       if (!parseResult) {
-        parseResult = await parseScoreAPI.parseCV(file, true);
-        setResult(parseResult);
+        if (backgroundParsePromise.current) {
+          // Wait for background parsing to complete (avoids duplicate API call)
+          parseResult = await backgroundParsePromise.current;
+        } else {
+          // No background parse started, parse now
+          parseResult = await parseScoreAPI.parseCV(file, true);
+          setResult(parseResult);
+        }
       }
 
       // Increment usage after successful parse
