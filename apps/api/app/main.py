@@ -26,6 +26,17 @@ async def lifespan(app: FastAPI):
     print("🗄️  Initializing database connection...")
     init_db()
     print("✅ Database ready")
+
+    # Debug: Print actual connection URL
+    import os
+    db_url = os.getenv('DATABASE_URL', 'NOT SET')
+    # Mask password for security
+    if '@' in db_url:
+        parts = db_url.split('@')
+        masked_url = parts[0].split(':')[0] + ':****@' + parts[1]
+    else:
+        masked_url = db_url
+    print(f"🔍 Using DATABASE_URL: {masked_url}")
     
     # Initialize Redis (automatic - handled by redis_client module)
     try:
