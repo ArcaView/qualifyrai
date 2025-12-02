@@ -77,7 +77,8 @@ engine = create_engine(
     echo=False,                # Set to True for SQL debugging
     connect_args={
         "connect_timeout": 10,  # Connection timeout in seconds
-        "options": "-c statement_timeout=30000"  # 30 second query timeout
+        "options": "-c statement_timeout=30000",  # 30 second query timeout
+        "sslmode": "require"  # Require SSL for Supabase connection
     }
 )
 
