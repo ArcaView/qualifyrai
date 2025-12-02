@@ -63,7 +63,6 @@ const ParseCV = () => {
   } = useUsage();
 
   const [file, setFile] = useState<File | null>(null);
-  const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [scoring, setScoring] = useState(false);
@@ -71,13 +70,14 @@ const ParseCV = () => {
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [newRoleDialogOpen, setNewRoleDialogOpen] = useState(false);
   const [newRoleTitle, setNewRoleTitle] = useState("");
+  const [showProcessing, setShowProcessing] = useState(false);
 
   // Load usage data on mount
   useEffect(() => {
     loadUsageData();
   }, [loadUsageData]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
 
@@ -98,25 +98,28 @@ const ParseCV = () => {
       setFile(selectedFile);
       setResult(null);
       setScoreResult(null);
+      setShowProcessing(false);
 
       // Silently start parsing in background - no user indication
       // This makes parsing feel instant when they click "Parse CV"
-      setParsing(true);
-      try {
-        const parseResult = await parseScoreAPI.parseCV(selectedFile, true);
-        setResult(parseResult);
-      } catch (error: any) {
-        // Silently fail - will retry when user clicks Parse button
-        console.error('Background parse failed:', error);
-        setResult(null);
-      } finally {
-        setParsing(false);
-      }
+      (async () => {
+        try {
+          const parseResult = await parseScoreAPI.parseCV(selectedFile, true);
+          setResult(parseResult);
+        } catch (error: any) {
+          // Silently fail - will retry when user clicks Parse button
+          console.error('Background parse failed:', error);
+          setResult(null);
+        }
+      })();
     }
   };
 
   const handleParse = async () => {
     if (!file || !selectedRole) return;
+
+    // User clicked - now show processing feedback
+    setShowProcessing(true);
 
     // Check quota before parsing
     if (!canParse(1)) {
@@ -125,36 +128,18 @@ const ParseCV = () => {
         description: `You've used all ${limits?.max_parses || 0} parses this month. Upgrade your plan to continue.`,
         variant: "destructive",
       });
+      setShowProcessing(false);
       return;
     }
 
-    // If background parsing failed or result is missing, retry now
-    if (!result && !parsing) {
-      setParsing(true);
-      try {
-        const parseResult = await parseScoreAPI.parseCV(file, true);
-        setResult(parseResult);
-      } catch (error: any) {
-        toast({
-          title: "Parse Failed",
-          description: error.message || "Failed to parse CV. Please try again.",
-          variant: "destructive",
-        });
-        setParsing(false);
-        return;
-      }
-      setParsing(false);
-    }
-
-    // Wait for parsing to complete if still in progress
-    // (User won't see this as button is disabled while parsing)
-    while (parsing) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-
-    if (!result) return;
-
     try {
+      // If background parsing hasn't completed yet, parse now
+      let parseResult = result;
+      if (!parseResult) {
+        parseResult = await parseScoreAPI.parseCV(file, true);
+        setResult(parseResult);
+      }
+
       // Increment usage after successful parse
       await incrementParseUsage(1);
 
@@ -166,7 +151,7 @@ const ParseCV = () => {
       });
 
       // Adapt to actual API structure
-      const parsedCandidate = result.candidate || {};
+      const parsedCandidate = parseResult.candidate || {};
       const contact = parsedCandidate.contact || {};
       const workExperience = parsedCandidate.work_experience || [];
       const education = parsedCandidate.education || [];
@@ -238,6 +223,7 @@ const ParseCV = () => {
       setResult(null);
       setScoreResult(null);
       setJobDescription("");
+      setShowProcessing(false);
       // Clear file input
       const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
@@ -249,6 +235,7 @@ const ParseCV = () => {
         description: error.message || "Failed to parse CV. Please try again.",
         variant: "destructive",
       });
+      setShowProcessing(false);
     }
   };
 
@@ -513,11 +500,11 @@ const ParseCV = () => {
 
               <Button
                 onClick={handleParse}
-                disabled={!file || parsing || !selectedRole}
+                disabled={!file || !selectedRole || showProcessing}
                 className="w-full"
                 size="lg"
               >
-                {parsing ? "Parsing..." : "Parse CV"}
+                {showProcessing ? "Parsing..." : "Parse CV"}
               </Button>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
