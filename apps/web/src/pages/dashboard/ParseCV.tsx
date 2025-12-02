@@ -78,6 +78,23 @@ const ParseCV = () => {
   const backgroundParsePromise = useRef<Promise<any> | null>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // Define handleParsingDialogClose before useEffects that use it
+  const handleParsingDialogClose = useCallback(() => {
+    setParsingDialogOpen(false);
+
+    // If parsing completed successfully, reset form (no toast needed - results are visible)
+    if (result && !showProcessing) {
+      // Reset form after successful addition
+      setFile(null);
+      setResult(null);
+      setScoreResult(null);
+      setJobDescription("");
+      // Clear file input
+      const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+    }
+  }, [result, showProcessing]);
+
   // Load usage data on mount
   useEffect(() => {
     loadUsageData();
@@ -279,22 +296,6 @@ const ParseCV = () => {
       setParsingDialogOpen(false);
     }
   };
-
-  const handleParsingDialogClose = useCallback(() => {
-    setParsingDialogOpen(false);
-
-    // If parsing completed successfully, reset form (no toast needed - results are visible)
-    if (result && !showProcessing) {
-      // Reset form after successful addition
-      setFile(null);
-      setResult(null);
-      setScoreResult(null);
-      setJobDescription("");
-      // Clear file input
-      const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-    }
-  }, [result, showProcessing]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
