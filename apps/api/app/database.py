@@ -4,6 +4,10 @@ from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 from typing import Generator
 import os
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 # Database URL from environment
 DATABASE_URL = os.getenv(
