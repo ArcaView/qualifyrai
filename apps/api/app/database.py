@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 from typing import Generator
 import os
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 # Load .env file
@@ -14,6 +15,16 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql+psycopg://dev:dev@localhost:5432/parsescore"
 )
+
+# For Supabase connection pooler, construct URL with properly encoded password
+# The password contains special chars: wWg%&R#6^lc76Y4$hjZh
+# We need to URL-encode it for the connection string
+if "pooler.supabase.com" in DATABASE_URL:
+    # Extract components and rebuild with proper encoding
+    # Expected format: postgresql+psycopg://user:password@host:port/database
+    raw_password = "wWg%&R#6^lc76Y4$hjZh"
+    encoded_password = quote_plus(raw_password)
+    DATABASE_URL = f"postgresql+psycopg://postgres.nxteuyzcxabqpelingje:{encoded_password}@aws-1-eu-west-2.pooler.supabase.com:6543/postgres"
 
 # Create engine with connection pooling
 engine = create_engine(
