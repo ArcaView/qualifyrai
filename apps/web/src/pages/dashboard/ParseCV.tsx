@@ -562,39 +562,49 @@ const ParseCV = () => {
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <Sparkles className="w-5 h-5 text-primary" />
-                      Analyzing Candidate
+                      Processing CV
                     </DialogTitle>
                     <DialogDescription>
-                      Extracting structured data from {file?.name}
+                      {file?.name}
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="py-6">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="relative">
-                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <FileText className="w-8 h-8 text-primary animate-pulse" />
-                        </div>
-                        <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                          <Sparkles className="w-3 h-3 text-white" />
+                  <div className="py-8">
+                    <div className="flex flex-col items-center gap-6">
+                      {/* Progress Circle */}
+                      <div className="relative w-32 h-32">
+                        <svg className="transform -rotate-90 w-32 h-32">
+                          <circle
+                            cx="64"
+                            cy="64"
+                            r="56"
+                            stroke="currentColor"
+                            strokeWidth="8"
+                            fill="none"
+                            className="text-muted"
+                          />
+                          <circle
+                            cx="64"
+                            cy="64"
+                            r="56"
+                            stroke="currentColor"
+                            strokeWidth="8"
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 56}`}
+                            strokeDashoffset={`${2 * Math.PI * 56 * (1 - parseProgress / 100)}`}
+                            className="text-primary transition-all duration-300 ease-out"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-4xl font-bold text-primary">{parseProgress}%</span>
                         </div>
                       </div>
-                      <div className="text-center space-y-3 w-full">
-                        <div className="flex items-center justify-center gap-2">
-                          <p className="font-medium text-base">Processing CV with AI</p>
-                          <span className="text-2xl font-bold text-primary">{parseProgress}%</span>
-                        </div>
-                        <div className="space-y-1.5 text-sm text-muted-foreground">
-                          <p>• Extracting contact information</p>
-                          <p>• Analyzing work experience</p>
-                          <p>• Identifying skills and qualifications</p>
-                        </div>
-                        {/* Progress bar */}
-                        <div className="w-full bg-muted rounded-full h-2 mt-4">
-                          <div
-                            className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
-                            style={{ width: `${parseProgress}%` }}
-                          />
-                        </div>
+
+                      {/* Status message */}
+                      <div className="text-center space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Extracting candidate information
+                        </p>
                       </div>
                     </div>
                   </div>
