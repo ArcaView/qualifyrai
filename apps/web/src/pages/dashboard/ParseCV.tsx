@@ -531,23 +531,30 @@ const ParseCV = () => {
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-primary" />
-                      Parsing CV
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Analyzing Candidate
                     </DialogTitle>
                     <DialogDescription>
-                      Analyzing {file?.name} using AI-powered parsing
+                      Extracting structured data from {file?.name}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="py-6">
                     <div className="flex flex-col items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <FileText className="w-8 h-8 text-primary animate-pulse" />
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <Sparkles className="w-3 h-3 text-white" />
+                        </div>
                       </div>
-                      <div className="text-center space-y-2">
-                        <p className="font-medium">Extracting candidate information...</p>
-                        <p className="text-sm text-muted-foreground">
-                          This may take a few moments
-                        </p>
+                      <div className="text-center space-y-3">
+                        <p className="font-medium text-base">Processing CV with AI</p>
+                        <div className="space-y-1.5 text-sm text-muted-foreground">
+                          <p>• Extracting contact information</p>
+                          <p>• Analyzing work experience</p>
+                          <p>• Identifying skills and qualifications</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -557,7 +564,7 @@ const ParseCV = () => {
                       className="w-full"
                       disabled={showProcessing && !result}
                     >
-                      {showProcessing && !result ? "Processing..." : "Continue"}
+                      {showProcessing && !result ? "Processing..." : "View Results"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
