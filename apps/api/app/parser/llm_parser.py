@@ -93,13 +93,17 @@ Return JSON with this structure (replace examples with actual data from CV):
 {{
   "contact": {{"full_name": "John Smith", "emails": ["john@email.com"], "phones": ["+1234567890"], "location": "New York, NY", "linkedin": "https://linkedin.com/in/...", "github": "https://github.com/...", "portfolio": "https://..."}},
   "work_experience": [{{"employer": "Company Name", "title": "Job Title", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD or null", "duration_months": 12, "location": "City, State", "bullets": ["Achievement 1", "Achievement 2"], "inferred_seniority": "junior/mid/senior/lead", "confidence": 0.9}}],
-  "education": [{{"institution": "University Name", "degree": "bachelors", "field": "Computer Science", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "gpa": 3.8, "confidence": 0.9}}],
+  "education": [{{"institution": "University Name", "degree": "bachelors/masters/doctorate/associates/other", "field": "Finance", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "gpa": 3.8, "confidence": 0.9}}],
   "skills": [{{"name": "Python", "canonical_id": "python", "group": "language", "years_experience": 5.0, "proficiency": "expert", "confidence": 0.9}}],
   "certifications": [{{"name": "AWS Certified", "issuer": "Amazon", "issue_date": "YYYY-MM-DD", "expiry_date": "YYYY-MM-DD", "credential_id": "ABC123", "confidence": 0.9}}],
   "languages": [{{"name": "English", "proficiency": "native", "confidence": 0.9}}]
 }}
 
 CRITICAL: Replace ALL example values with ACTUAL data from the CV. Do not return type names like "str" or "int" - extract the real values.
+For education:
+  - "degree" should be the LEVEL only (bachelors/masters/doctorate/associates/other)
+  - "field" should be the SUBJECT only (e.g., "Finance", "Computer Science") - DO NOT include words like "in" or "of"
+  - Example: "Bachelor of Science in Finance" → degree="bachelors", field="Finance"
 Rules: Extract everything. Use YYYY-MM-DD dates. Current jobs: end_date=null. Calculate duration_months. Infer seniority. Return only JSON."""
 
         if self.provider == "openai":
