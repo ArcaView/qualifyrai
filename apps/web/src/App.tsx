@@ -15,12 +15,11 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Features from "./pages/Features";
 import Pricing from "./pages/Pricing";
-import Docs from "./pages/Docs";
 import Auth from "./pages/Auth";
 import Overview from "./pages/dashboard/Overview";
 import ParseCV from "./pages/dashboard/ParseCV";
 import BulkParse from "./pages/dashboard/BulkParse";
-import DeveloperDashboard from "./pages/dashboard/DeveloperDashboard";
+import CoverLetterReview from "./pages/dashboard/CoverLetterReview";
 import OpenRoles from "./pages/dashboard/OpenRoles";
 import RoleDetails from "./pages/dashboard/RoleDetails";
 import AllCandidates from "./pages/dashboard/AllCandidates";
@@ -54,13 +53,12 @@ const AppContent = () => {
           <Route path="/" element={<Index />} />
           <Route path="/features" element={<Features />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route path="/docs" element={<Docs />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/complete-signup" element={<CompleteSignup />} />
           <Route path="/dashboard" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
           <Route path="/dashboard/parse" element={<ProtectedRoute><ParseCV /></ProtectedRoute>} />
           <Route path="/dashboard/bulk-parse" element={<ProtectedRoute><BulkParse /></ProtectedRoute>} />
-          <Route path="/dashboard/developer" element={<ProtectedRoute><DeveloperDashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/cover-letter" element={<ProtectedRoute><CoverLetterReview /></ProtectedRoute>} />
           <Route path="/dashboard/roles" element={<ProtectedRoute><OpenRoles /></ProtectedRoute>} />
           <Route path="/dashboard/roles/:id" element={<ProtectedRoute><RoleDetails /></ProtectedRoute>} />
           <Route path="/dashboard/candidates" element={<ProtectedRoute><AllCandidates /></ProtectedRoute>} />

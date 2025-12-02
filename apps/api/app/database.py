@@ -7,6 +7,10 @@ from typing import Generator, Optional, Dict, Any
 from urllib.parse import quote_plus, urlparse, urlunparse
 import os
 import logging
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 

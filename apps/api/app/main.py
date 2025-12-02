@@ -19,25 +19,37 @@ START_TIME = time.time()
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup/shutdown."""
     # Startup
-    print(f"🚀 ParseScore Internal API starting in {settings.APP_ENV} mode...")
+    print(f"🚀 ParseScore API starting in {settings.APP_ENV} mode...")
     print(f"🤖 LLM enabled: {settings.LLM_ENABLED}")
     
     # Initialize database
     print("🗄️  Initializing database connection...")
+
+    # Debug: Print actual connection URL
+    import os
+    db_url = os.getenv('DATABASE_URL', 'NOT SET')
+    # Mask password for security
+    if '@' in db_url:
+        parts = db_url.split('@')
+        masked_url = parts[0].split(':')[0] + ':****@' + parts[1]
+    else:
+        masked_url = db_url
+    print(f"🔍 Using DATABASE_URL: {masked_url}")
+
     try:
         init_db()
         print("✅ Database ready")
     except Exception as e:
         print(f"⚠️  Database initialization failed: {e}")
         print("   API will start but database features may not work")
-    
+
     # Initialize Redis (automatic - handled by redis_client module)
     try:
         from app.redis_client import redis_client
         if redis_client.is_available():
-            print("✅ Redis ready")
+            print("✅ Redis ready (caching enabled)")
         else:
-            print("⚠️  Redis unavailable")
+            print("⚠️  Redis unavailable (caching disabled)")
     except Exception as e:
         print(f"⚠️  Redis initialization failed: {e}")
     
@@ -60,14 +72,18 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="ParseScore Internal API",
+    title="ParseScore API",
     version=settings.API_VERSION,
-    description="Internal CV Parser & AI Scoring Service",
+    description="CV Parser & AI Scoring API - Developer-first, production-ready",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
+
+# Rate limiting middleware
+#from app.middleware.rate_limit import RateLimitMiddleware
+#app.add_middleware(RateLimitMiddleware)
 
 # CORS middleware
 app.add_middleware(
@@ -179,7 +195,7 @@ def health():
 def root():
     """Root redirect to docs."""
     return {
-        "message": "ParseScore Internal API - For Internal Processing Only",
+        "message": "ParseScore API",
         "docs": "/docs",
         "health": "/v1/health"
     }
@@ -189,14 +205,56 @@ def root():
 # ROUTE IMPORTS
 # ============================================================================
 
-from app.routes import parse, score, batch, health, jobs
+from app.routes import parse, score, batch
 
 # Include routers
 app.include_router(parse.router)
 app.include_router(score.router)
 app.include_router(batch.router)
-app.include_router(health.router)
-app.include_router(jobs.router)
+
+# ============================================================================
+# PLACEHOLDER ENDPOINTS (to be implemented)
+# ============================================================================
+
+
+@app.post("/v1/jobs", tags=["Jobs"])
+async def create_job(request: Request):
+    """Create or normalize a job profile.
+    
+    **TODO**: Implement job profile normalization.
+    """
+    return {
+        "request_id": request.state.request_id,
+        "message": "Jobs endpoint - coming soon",
+        "status": "not_implemented"
+    }
+
+
+@app.get("/v1/usage", tags=["System"])
+async def get_usage(request: Request):
+    """Get API usage statistics for the current key.
+    
+    **TODO**: Implement usage tracking.
+    """
+    return {
+        "request_id": request.state.request_id,
+        "message": "Usage endpoint - coming soon",
+        "status": "not_implemented"
+    }
+
+
+@app.delete("/v1/candidates/{candidate_id}", tags=["GDPR"])
+async def delete_candidate(candidate_id: str, request: Request):
+    """Delete candidate data (GDPR compliance).
+    
+    **TODO**: Implement data deletion.
+    """
+    return {
+        "request_id": request.state.request_id,
+        "candidate_id": candidate_id,
+        "message": "Delete endpoint - coming soon",
+        "status": "not_implemented"
+    }
 
 
 if __name__ == "__main__":

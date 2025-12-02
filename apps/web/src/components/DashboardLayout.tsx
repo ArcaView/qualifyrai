@@ -54,10 +54,10 @@ const navItems = [
     description: "View all candidates",
   },
   {
-    title: "Developer",
-    href: "/dashboard/developer",
-    icon: Code2,
-    description: "API keys and documentation",
+    title: "Cover Letter Review",
+    href: "/dashboard/cover-letter",
+    icon: FileText,
+    description: "Review and analyze cover letters",
   },
   {
     title: "Analytics",

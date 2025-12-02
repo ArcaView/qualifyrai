@@ -1,3 +1,3 @@
-"""Middleware package - Internal use only."""
+"""Middleware package."""
 
 __all__ = []
