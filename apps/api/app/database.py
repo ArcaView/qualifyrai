@@ -14,10 +14,8 @@ DATABASE_URL = os.getenv(
 # Create engine with connection pooling
 engine = create_engine(
     DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
+    poolclass=None,  # Disable pooling - creates fresh connection each time
     pool_pre_ping=True,  # Verify connections before using
-    pool_recycle=3600,  # Recycle connections after 1 hour
     echo=False  # Set to True for SQL debugging
 )
 
