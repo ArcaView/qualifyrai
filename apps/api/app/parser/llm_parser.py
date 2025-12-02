@@ -85,20 +85,21 @@ class LLMParser:
         """Call LLM async with CV text and get structured JSON response."""
 
         # Shortened, more efficient prompt
-        prompt = f"""Parse this CV into JSON. Extract ALL sections completely.
+        prompt = f"""Parse this CV into JSON. Extract ALL sections completely and accurately.
 
 {text}
 
-Return JSON:
+Return JSON with this structure (replace examples with actual data from CV):
 {{
-  "contact": {{"full_name": "str", "emails": ["str"], "phones": ["str"], "location": "City, Region", "linkedin": "url", "github": "url", "portfolio": "url"}},
-  "work_experience": [{{"employer": "str", "title": "str", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD or null", "duration_months": int, "location": "str", "bullets": ["str"], "inferred_seniority": "junior/mid/senior/lead", "confidence": 0.9}}],
-  "education": [{{"institution": "str", "degree": "doctorate/masters/bachelors/associates/certificate/high_school/other", "field": "str", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "gpa": float, "confidence": 0.9}}],
-  "skills": [{{"name": "str", "canonical_id": "python/aws/etc", "group": "language/cloud/framework/database/tool", "years_experience": float, "proficiency": "str", "confidence": 0.9}}],
-  "certifications": [{{"name": "str", "issuer": "str", "issue_date": "YYYY-MM-DD", "expiry_date": "YYYY-MM-DD", "credential_id": "str", "confidence": 0.9}}],
-  "languages": [{{"name": "str", "proficiency": "native/fluent/professional/intermediate/basic", "confidence": 0.9}}]
+  "contact": {{"full_name": "John Smith", "emails": ["john@email.com"], "phones": ["+1234567890"], "location": "New York, NY", "linkedin": "https://linkedin.com/in/...", "github": "https://github.com/...", "portfolio": "https://..."}},
+  "work_experience": [{{"employer": "Company Name", "title": "Job Title", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD or null", "duration_months": 12, "location": "City, State", "bullets": ["Achievement 1", "Achievement 2"], "inferred_seniority": "junior/mid/senior/lead", "confidence": 0.9}}],
+  "education": [{{"institution": "University Name", "degree": "bachelors", "field": "Computer Science", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "gpa": 3.8, "confidence": 0.9}}],
+  "skills": [{{"name": "Python", "canonical_id": "python", "group": "language", "years_experience": 5.0, "proficiency": "expert", "confidence": 0.9}}],
+  "certifications": [{{"name": "AWS Certified", "issuer": "Amazon", "issue_date": "YYYY-MM-DD", "expiry_date": "YYYY-MM-DD", "credential_id": "ABC123", "confidence": 0.9}}],
+  "languages": [{{"name": "English", "proficiency": "native", "confidence": 0.9}}]
 }}
 
+CRITICAL: Replace ALL example values with ACTUAL data from the CV. Do not return type names like "str" or "int" - extract the real values.
 Rules: Extract everything. Use YYYY-MM-DD dates. Current jobs: end_date=null. Calculate duration_months. Infer seniority. Return only JSON."""
 
         if self.provider == "openai":
@@ -129,16 +130,32 @@ Rules: Extract everything. Use YYYY-MM-DD dates. Current jobs: end_date=null. Ca
 
         return result
 
+    def _validate_and_clean_value(self, value: Any, field_name: str) -> Any:
+        """Validate and clean extracted values to catch LLM errors."""
+        if value is None:
+            return None
+
+        # Check for common LLM errors (returning type names instead of values)
+        if isinstance(value, str):
+            value_lower = value.lower().strip()
+            # Invalid values that indicate parsing errors
+            invalid_values = ['str', 'string', 'int', 'float', 'none', 'null', 'n/a', 'unknown', '']
+            if value_lower in invalid_values:
+                print(f"⚠️  Warning: Detected invalid value '{value}' for field '{field_name}' - setting to None")
+                return None
+
+        return value
+
     def _build_candidate(self, data: Dict[str, Any], raw_text: str, filename: str, file_hash: str) -> ParsedCandidate:
         """Build ParsedCandidate from LLM response."""
 
         # Contact info
         contact_data = data.get("contact", {})
         contact = ContactInfo(
-            full_name=contact_data.get("full_name"),
+            full_name=self._validate_and_clean_value(contact_data.get("full_name"), "full_name"),
             emails=contact_data.get("emails", []),
             phones=contact_data.get("phones", []),
-            location=contact_data.get("location"),
+            location=self._validate_and_clean_value(contact_data.get("location"), "location"),
             linkedin=contact_data.get("linkedin"),
             github=contact_data.get("github"),
             portfolio=contact_data.get("portfolio")
