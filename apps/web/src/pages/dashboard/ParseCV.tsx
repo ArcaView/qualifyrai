@@ -77,13 +77,13 @@ const ParseCV = () => {
     loadUsageData();
   }, [loadUsageData]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      
+
       // Validate file before accepting
       const validation = validateFile(selectedFile);
-      
+
       if (!validation.valid) {
         toast({
           title: "Invalid File",
@@ -94,22 +94,43 @@ const ParseCV = () => {
         setFile(null);
         return;
       }
-      
+
       setFile(selectedFile);
       setResult(null);
       setScoreResult(null);
-      
+
       toast({
         title: "File Selected",
-        description: `${selectedFile.name} (${formatFileSize(selectedFile.size)}) is ready to parse.`,
+        description: `${selectedFile.name} (${formatFileSize(selectedFile.size)}) - Parsing in background...`,
       });
+
+      // Start parsing in background immediately
+      setParsing(true);
+      try {
+        const parseResult = await parseScoreAPI.parseCV(selectedFile, true);
+        setResult(parseResult);
+
+        toast({
+          title: "Parsing Complete",
+          description: "CV parsed successfully! Review results and click 'Add to Role' when ready.",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Parse Failed",
+          description: error.message || "Failed to parse CV. Please try another file.",
+          variant: "destructive",
+        });
+        setFile(null);
+      } finally {
+        setParsing(false);
+      }
     }
   };
 
-  const handleParse = async () => {
-    if (!file || !selectedRole) return;
+  const handleAddToRole = async () => {
+    if (!result || !selectedRole || !file) return;
 
-    // Check quota before parsing
+    // Check quota before adding (usage is counted when adding to role)
     if (!canParse(1)) {
       toast({
         title: "Quota Exceeded",
@@ -119,14 +140,8 @@ const ParseCV = () => {
       return;
     }
 
-    setParsing(true);
-
     try {
-      const parseResult = await parseScoreAPI.parseCV(file, true);
-
-      setResult(parseResult);
-
-      // Increment usage after successful parse
+      // Increment usage when adding to role (not during background parse)
       await incrementParseUsage(1);
 
       // Track analytics event
@@ -137,7 +152,7 @@ const ParseCV = () => {
       });
 
       // Adapt to actual API structure
-      const parsedCandidate = parseResult.candidate || {};
+      const parsedCandidate = result.candidate || {};
       const contact = parsedCandidate.contact || {};
       const workExperience = parsedCandidate.work_experience || [];
       const education = parsedCandidate.education || [];
@@ -200,19 +215,26 @@ const ParseCV = () => {
       addCandidateToRole(selectedRole, candidateData);
 
       toast({
-        title: "CV Parsed Successfully",
+        title: "Candidate Added Successfully",
         description: `${contact.full_name || 'Candidate'} has been added to the role.`,
       });
+
+      // Reset form after successful addition
+      setFile(null);
+      setResult(null);
+      setScoreResult(null);
+      setJobDescription("");
+      // Clear file input
+      const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
 
     } catch (error: any) {
       // TODO: Replace with proper error logging service (e.g., Sentry)
       toast({
-        title: "Parse Failed",
-        description: error.message || "Failed to parse CV. Please try again.",
+        title: "Failed to Add Candidate",
+        description: error.message || "Failed to add candidate to role. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setParsing(false);
     }
   };
 
@@ -476,12 +498,12 @@ const ParseCV = () => {
               </div>
 
               <Button
-                onClick={handleParse}
-                disabled={!file || parsing || !selectedRole}
+                onClick={handleAddToRole}
+                disabled={!result || parsing || !selectedRole}
                 className="w-full"
                 size="lg"
               >
-                {parsing ? "Parsing..." : "Parse CV"}
+                {parsing ? "Parsing..." : "Add to Role"}
               </Button>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
