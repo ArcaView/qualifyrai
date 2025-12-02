@@ -36,7 +36,7 @@ import {
   Sparkles,
   ArrowRight,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRoles } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { parseScoreAPI } from "@/lib/api";
@@ -72,14 +72,50 @@ const ParseCV = () => {
   const [newRoleTitle, setNewRoleTitle] = useState("");
   const [showProcessing, setShowProcessing] = useState(false);
   const [parsingDialogOpen, setParsingDialogOpen] = useState(false);
+  const [parseProgress, setParseProgress] = useState(0);
 
   // Track background parsing promise to avoid duplicate API calls
   const backgroundParsePromise = useRef<Promise<any> | null>(null);
+  const progressInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Load usage data on mount
   useEffect(() => {
     loadUsageData();
   }, [loadUsageData]);
+
+  // Animate progress bar while parsing
+  useEffect(() => {
+    if (parsingDialogOpen && showProcessing) {
+      setParseProgress(0);
+      // Simulate progress: increment by 2% every 100ms, cap at 90%
+      progressInterval.current = setInterval(() => {
+        setParseProgress(prev => {
+          if (prev >= 90) {
+            return 90; // Stay at 90% until actual parsing completes
+          }
+          return prev + 2;
+        });
+      }, 100);
+
+      return () => {
+        if (progressInterval.current) {
+          clearInterval(progressInterval.current);
+        }
+      };
+    }
+  }, [parsingDialogOpen, showProcessing]);
+
+  // Auto-close dialog when parsing completes
+  useEffect(() => {
+    if (parsingDialogOpen && !showProcessing && result) {
+      // Jump to 100% and close after brief delay
+      setParseProgress(100);
+      const timer = setTimeout(() => {
+        handleParsingDialogClose();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [parsingDialogOpen, showProcessing, result, handleParsingDialogClose]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -244,7 +280,7 @@ const ParseCV = () => {
     }
   };
 
-  const handleParsingDialogClose = () => {
+  const handleParsingDialogClose = useCallback(() => {
     setParsingDialogOpen(false);
 
     // If parsing completed successfully, reset form (no toast needed - results are visible)
@@ -258,7 +294,7 @@ const ParseCV = () => {
       const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     }
-  };
+  }, [result, showProcessing]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -541,25 +577,26 @@ const ParseCV = () => {
                           <Sparkles className="w-3 h-3 text-white" />
                         </div>
                       </div>
-                      <div className="text-center space-y-3">
-                        <p className="font-medium text-base">Processing CV with AI</p>
+                      <div className="text-center space-y-3 w-full">
+                        <div className="flex items-center justify-center gap-2">
+                          <p className="font-medium text-base">Processing CV with AI</p>
+                          <span className="text-2xl font-bold text-primary">{parseProgress}%</span>
+                        </div>
                         <div className="space-y-1.5 text-sm text-muted-foreground">
                           <p>• Extracting contact information</p>
                           <p>• Analyzing work experience</p>
                           <p>• Identifying skills and qualifications</p>
                         </div>
+                        {/* Progress bar */}
+                        <div className="w-full bg-muted rounded-full h-2 mt-4">
+                          <div
+                            className="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+                            style={{ width: `${parseProgress}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <DialogFooter>
-                    <Button
-                      onClick={handleParsingDialogClose}
-                      className="w-full"
-                      disabled={showProcessing && !result}
-                    >
-                      {showProcessing && !result ? "Processing..." : "View Results"}
-                    </Button>
-                  </DialogFooter>
                 </DialogContent>
               </Dialog>
 
