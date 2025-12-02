@@ -99,38 +99,26 @@ const ParseCV = () => {
       setResult(null);
       setScoreResult(null);
 
-      toast({
-        title: "File Selected",
-        description: `${selectedFile.name} (${formatFileSize(selectedFile.size)}) - Parsing in background...`,
-      });
-
-      // Start parsing in background immediately
+      // Silently start parsing in background - no user indication
+      // This makes parsing feel instant when they click "Parse CV"
       setParsing(true);
       try {
         const parseResult = await parseScoreAPI.parseCV(selectedFile, true);
         setResult(parseResult);
-
-        toast({
-          title: "Parsing Complete",
-          description: "CV parsed successfully! Review results and click 'Add to Role' when ready.",
-        });
       } catch (error: any) {
-        toast({
-          title: "Parse Failed",
-          description: error.message || "Failed to parse CV. Please try another file.",
-          variant: "destructive",
-        });
-        setFile(null);
+        // Silently fail - will retry when user clicks Parse button
+        console.error('Background parse failed:', error);
+        setResult(null);
       } finally {
         setParsing(false);
       }
     }
   };
 
-  const handleAddToRole = async () => {
-    if (!result || !selectedRole || !file) return;
+  const handleParse = async () => {
+    if (!file || !selectedRole) return;
 
-    // Check quota before adding (usage is counted when adding to role)
+    // Check quota before parsing
     if (!canParse(1)) {
       toast({
         title: "Quota Exceeded",
@@ -140,8 +128,34 @@ const ParseCV = () => {
       return;
     }
 
+    // If background parsing failed or result is missing, retry now
+    if (!result && !parsing) {
+      setParsing(true);
+      try {
+        const parseResult = await parseScoreAPI.parseCV(file, true);
+        setResult(parseResult);
+      } catch (error: any) {
+        toast({
+          title: "Parse Failed",
+          description: error.message || "Failed to parse CV. Please try again.",
+          variant: "destructive",
+        });
+        setParsing(false);
+        return;
+      }
+      setParsing(false);
+    }
+
+    // Wait for parsing to complete if still in progress
+    // (User won't see this as button is disabled while parsing)
+    while (parsing) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    if (!result) return;
+
     try {
-      // Increment usage when adding to role (not during background parse)
+      // Increment usage after successful parse
       await incrementParseUsage(1);
 
       // Track analytics event
@@ -215,7 +229,7 @@ const ParseCV = () => {
       addCandidateToRole(selectedRole, candidateData);
 
       toast({
-        title: "Candidate Added Successfully",
+        title: "CV Parsed Successfully",
         description: `${contact.full_name || 'Candidate'} has been added to the role.`,
       });
 
@@ -231,8 +245,8 @@ const ParseCV = () => {
     } catch (error: any) {
       // TODO: Replace with proper error logging service (e.g., Sentry)
       toast({
-        title: "Failed to Add Candidate",
-        description: error.message || "Failed to add candidate to role. Please try again.",
+        title: "Parse Failed",
+        description: error.message || "Failed to parse CV. Please try again.",
         variant: "destructive",
       });
     }
@@ -498,12 +512,12 @@ const ParseCV = () => {
               </div>
 
               <Button
-                onClick={handleAddToRole}
-                disabled={!result || parsing || !selectedRole}
+                onClick={handleParse}
+                disabled={!file || parsing || !selectedRole}
                 className="w-full"
                 size="lg"
               >
-                {parsing ? "Parsing..." : "Add to Role"}
+                {parsing ? "Parsing..." : "Parse CV"}
               </Button>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
