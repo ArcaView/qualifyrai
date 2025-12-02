@@ -200,13 +200,23 @@ Rules: Extract everything. Use YYYY-MM-DD dates. Current jobs: end_date=null. Ca
             if not institution:
                 institution = "Unknown"
 
+            # Handle GPA - convert empty strings to None to prevent validation errors
+            gpa_value = edu.get("gpa")
+            if gpa_value == "" or gpa_value is None:
+                gpa = None
+            else:
+                try:
+                    gpa = float(gpa_value) if gpa_value else None
+                except (ValueError, TypeError):
+                    gpa = None
+
             education.append(Education(
                 institution=institution,
                 degree=degree,
                 field=self._validate_and_clean_value(edu.get("field"), "field"),
                 start_date=edu.get("start_date"),
                 end_date=edu.get("end_date"),
-                gpa=edu.get("gpa"),
+                gpa=gpa,
                 confidence=edu.get("confidence", 0.8)
             ))
 
