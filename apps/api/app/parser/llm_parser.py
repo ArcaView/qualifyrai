@@ -84,61 +84,23 @@ class LLMParser:
     async def _call_llm_async(self, text: str) -> Dict[str, Any]:
         """Call LLM async with CV text and get structured JSON response."""
 
-        # Improved prompt with better format handling
-        prompt = f"""Parse this CV into structured JSON. Extract ALL information accurately.
+        # Shortened, more efficient prompt
+        prompt = f"""Parse this CV into JSON. Extract ALL sections completely and accurately.
 
-CV TEXT:
 {text}
 
-INSTRUCTIONS:
-1. NEVER use placeholder values like "N/A", "Unknown", "str", "null" - extract actual data or leave empty
-2. For work experience, the employer name may be on a separate line from the job title - look carefully
-3. Extract complete degree names (e.g., "Bachelor of Science in Computer Science", not just "in Computer Science")
-4. Handle multi-line formatting where company names, titles, and dates may be on different lines
-
-Return JSON:
+Return JSON with this structure (replace examples with actual data from CV):
 {{
-  "contact": {{
-    "full_name": "Actual Full Name",
-    "emails": ["actual@email.com"],
-    "phones": ["+1234567890"],
-    "location": "City, Region",
-    "linkedin": "url or null",
-    "github": "url or null",
-    "portfolio": "url or null"
-  }},
-  "work_experience": [{{
-    "employer": "Actual Company Name (NEVER use N/A)",
-    "title": "Actual Job Title",
-    "start_date": "2024-01-15",
-    "end_date": "2024-06-30 or null",
-    "duration_months": 6,
-    "location": "City, State",
-    "bullets": ["Achievement 1", "Achievement 2"],
-    "inferred_seniority": "junior/mid/senior/lead",
-    "confidence": 0.9
-  }}],
-  "education": [{{
-    "institution": "University Name",
-    "degree": "bachelors/masters/doctorate/associates/other",
-    "field": "Complete degree name (e.g. Bachelor of Science in Finance)",
-    "start_date": "2020-09-01",
-    "end_date": "2024-06-01",
-    "gpa": 3.8,
-    "confidence": 0.9
-  }}],
-  "skills": [{{"name": "Python", "canonical_id": "python", "group": "language", "years_experience": 3.0, "proficiency": "expert", "confidence": 0.9}}],
-  "certifications": [{{"name": "AWS Certified", "issuer": "Amazon", "issue_date": "2023-01-01", "expiry_date": "2026-01-01", "credential_id": "ABC123", "confidence": 0.9}}],
-  "languages": [{{"name": "English", "proficiency": "native/fluent/professional/intermediate/basic", "confidence": 0.9}}]
+  "contact": {{"full_name": "John Smith", "emails": ["john@email.com"], "phones": ["+1234567890"], "location": "New York, NY", "linkedin": "https://linkedin.com/in/...", "github": "https://github.com/...", "portfolio": "https://..."}},
+  "work_experience": [{{"employer": "Company Name", "title": "Job Title", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD or null", "duration_months": 12, "location": "City, State", "bullets": ["Achievement 1", "Achievement 2"], "inferred_seniority": "junior/mid/senior/lead", "confidence": 0.9}}],
+  "education": [{{"institution": "University Name", "degree": "bachelors", "field": "Computer Science", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD", "gpa": 3.8, "confidence": 0.9}}],
+  "skills": [{{"name": "Python", "canonical_id": "python", "group": "language", "years_experience": 5.0, "proficiency": "expert", "confidence": 0.9}}],
+  "certifications": [{{"name": "AWS Certified", "issuer": "Amazon", "issue_date": "YYYY-MM-DD", "expiry_date": "YYYY-MM-DD", "credential_id": "ABC123", "confidence": 0.9}}],
+  "languages": [{{"name": "English", "proficiency": "native", "confidence": 0.9}}]
 }}
 
-CRITICAL RULES:
-- Extract ACTUAL data from the CV text above
-- NEVER return "N/A", "Unknown", "str", "int", "null" as values
-- If you cannot find employer name, look for company names near job titles
-- Use YYYY-MM-DD format for all dates
-- Current/ongoing jobs: use null for end_date
-- Return ONLY valid JSON, nothing else"""
+CRITICAL: Replace ALL example values with ACTUAL data from the CV. Do not return type names like "str" or "int" - extract the real values.
+Rules: Extract everything. Use YYYY-MM-DD dates. Current jobs: end_date=null. Calculate duration_months. Infer seniority. Return only JSON."""
 
         if self.provider == "openai":
             response = await self.client.chat.completions.create(
