@@ -247,15 +247,8 @@ const ParseCV = () => {
   const handleParsingDialogClose = () => {
     setParsingDialogOpen(false);
 
-    // If parsing completed successfully, show success and reset form
+    // If parsing completed successfully, reset form (no toast needed - results are visible)
     if (result && !showProcessing) {
-      const contact = result.candidate?.contact || {};
-
-      toast({
-        title: "CV Parsed Successfully",
-        description: `${contact.full_name || 'Candidate'} has been added to the role.`,
-      });
-
       // Reset form after successful addition
       setFile(null);
       setResult(null);
