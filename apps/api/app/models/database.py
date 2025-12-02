@@ -15,7 +15,7 @@ def generate_uuid():
 
 class ApiKey(Base):
     """API Key model for authentication."""
-    __tablename__ = "api_keys"
+    __tablename__ = "ps_api_keys"
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     key_hash = Column(String(64), unique=True, nullable=False, index=True)
@@ -38,7 +38,7 @@ class ParsedCV(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     request_id = Column(String(36), nullable=False, index=True)
-    api_key_id = Column(String(36), ForeignKey('api_keys.id'), nullable=True)  # Nullable for internal API
+    api_key_id = Column(String(36), ForeignKey('ps_api_keys.id'), nullable=True)  # Nullable for internal API
     filename = Column(String(500), nullable=False)
     file_type = Column(String(10), nullable=False)  # pdf, docx, txt
     parsed_data = Column(JSON, nullable=False)  # Full ParsedCV schema as JSON
