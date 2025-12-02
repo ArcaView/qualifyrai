@@ -71,6 +71,7 @@ const ParseCV = () => {
   const [newRoleDialogOpen, setNewRoleDialogOpen] = useState(false);
   const [newRoleTitle, setNewRoleTitle] = useState("");
   const [showProcessing, setShowProcessing] = useState(false);
+  const [parsingDialogOpen, setParsingDialogOpen] = useState(false);
 
   // Track background parsing promise to avoid duplicate API calls
   const backgroundParsePromise = useRef<Promise<any> | null>(null);
@@ -123,9 +124,6 @@ const ParseCV = () => {
   const handleParse = async () => {
     if (!file || !selectedRole) return;
 
-    // User clicked - now show processing feedback
-    setShowProcessing(true);
-
     // Check quota before parsing
     if (!canParse(1)) {
       toast({
@@ -133,9 +131,12 @@ const ParseCV = () => {
         description: `You've used all ${limits?.max_parses || 0} parses this month. Upgrade your plan to continue.`,
         variant: "destructive",
       });
-      setShowProcessing(false);
       return;
     }
+
+    // Show dialog immediately for user engagement
+    setParsingDialogOpen(true);
+    setShowProcessing(true);
 
     try {
       let parseResult = result;
@@ -225,6 +226,31 @@ const ParseCV = () => {
 
       addCandidateToRole(selectedRole, candidateData);
 
+      // Parsing complete - enable the Continue button in dialog
+      setShowProcessing(false);
+
+      // Don't show toast or reset form yet - let user close dialog first
+      // They'll see results when they click Continue
+
+    } catch (error: any) {
+      // TODO: Replace with proper error logging service (e.g., Sentry)
+      toast({
+        title: "Parse Failed",
+        description: error.message || "Failed to parse CV. Please try again.",
+        variant: "destructive",
+      });
+      setShowProcessing(false);
+      setParsingDialogOpen(false);
+    }
+  };
+
+  const handleParsingDialogClose = () => {
+    setParsingDialogOpen(false);
+
+    // If parsing completed successfully, show success and reset form
+    if (result && !showProcessing) {
+      const contact = result.candidate?.contact || {};
+
       toast({
         title: "CV Parsed Successfully",
         description: `${contact.full_name || 'Candidate'} has been added to the role.`,
@@ -235,19 +261,9 @@ const ParseCV = () => {
       setResult(null);
       setScoreResult(null);
       setJobDescription("");
-      setShowProcessing(false);
       // Clear file input
       const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-
-    } catch (error: any) {
-      // TODO: Replace with proper error logging service (e.g., Sentry)
-      toast({
-        title: "Parse Failed",
-        description: error.message || "Failed to parse CV. Please try again.",
-        variant: "destructive",
-      });
-      setShowProcessing(false);
     }
   };
 
@@ -509,6 +525,43 @@ const ParseCV = () => {
                   Add a job description to score how well the candidate matches the role
                 </p>
               </div>
+
+              {/* Parsing Dialog */}
+              <Dialog open={parsingDialogOpen} onOpenChange={(open) => !open && handleParsingDialogClose()}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-primary" />
+                      Parsing CV
+                    </DialogTitle>
+                    <DialogDescription>
+                      Analyzing {file?.name} using AI-powered parsing
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-6">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <p className="font-medium">Extracting candidate information...</p>
+                        <p className="text-sm text-muted-foreground">
+                          This may take a few moments
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={handleParsingDialogClose}
+                      className="w-full"
+                      disabled={showProcessing && !result}
+                    >
+                      {showProcessing && !result ? "Processing..." : "Continue"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               <Button
                 onClick={handleParse}
