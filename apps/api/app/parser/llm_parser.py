@@ -164,9 +164,17 @@ Rules: Extract everything. Use YYYY-MM-DD dates. Current jobs: end_date=null. Ca
         # Work experience
         work_experience = []
         for exp in data.get("work_experience", []):
+            # Validate employer and title to prevent "N/A", "Unknown", etc.
+            employer = self._validate_and_clean_value(exp.get("employer"), "employer")
+            title = self._validate_and_clean_value(exp.get("title"), "title")
+
+            # Skip entries with no employer or title
+            if not employer and not title:
+                continue
+
             work_experience.append(WorkExperience(
-                employer=exp.get("employer", "Unknown"),
-                title=exp.get("title", "Unknown"),
+                employer=employer or "Unknown",
+                title=title or "Unknown",
                 start_date=exp.get("start_date"),
                 end_date=exp.get("end_date"),
                 duration_months=exp.get("duration_months"),
@@ -187,10 +195,15 @@ Rules: Extract everything. Use YYYY-MM-DD dates. Current jobs: end_date=null. Ca
                 except:
                     degree = None
 
+            # Validate institution name
+            institution = self._validate_and_clean_value(edu.get("institution"), "institution")
+            if not institution:
+                institution = "Unknown"
+
             education.append(Education(
-                institution=edu.get("institution", "Unknown"),
+                institution=institution,
                 degree=degree,
-                field=edu.get("field"),
+                field=self._validate_and_clean_value(edu.get("field"), "field"),
                 start_date=edu.get("start_date"),
                 end_date=edu.get("end_date"),
                 gpa=edu.get("gpa"),
