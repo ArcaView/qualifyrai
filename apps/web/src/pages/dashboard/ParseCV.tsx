@@ -128,10 +128,17 @@ const ParseCV = () => {
   };
 
   const handleParse = async () => {
-    if (!file || !selectedRole) return;
+    console.log('🚀 handleParse started', { hasFile: !!file, hasRole: !!selectedRole });
+
+    if (!file || !selectedRole) {
+      console.log('❌ Missing file or selectedRole');
+      return;
+    }
 
     // Check quota before parsing
+    console.log('🔍 Checking quota...', { canParse: canParse(1) });
     if (!canParse(1)) {
+      console.log('❌ Quota exceeded');
       toast({
         title: "Quota Exceeded",
         description: `You've used all ${limits?.max_parses || 0} parses this month. Upgrade your plan to continue.`,
@@ -140,38 +147,55 @@ const ParseCV = () => {
       return;
     }
 
+    console.log('✅ Quota check passed, opening dialog');
+
     // Show dialog immediately for user engagement
     setParsingDialogOpen(true);
     setShowProcessing(true);
 
+    console.log('📊 Dialog opened, showProcessing=true');
+
     try {
       let parseResult = result;
+      console.log('📊 Current result state:', { hasResult: !!result });
 
       // If we don't have a result yet, check if background parsing is in progress
       if (!parseResult) {
+        console.log('⏳ No result yet, checking background promise');
         if (backgroundParsePromise.current) {
+          console.log('⏳ Waiting for background promise...');
           // Wait for background parsing to complete (avoids duplicate API call)
           parseResult = await backgroundParsePromise.current;
+          console.log('✅ Background promise resolved:', { hasResult: !!parseResult });
           setResult(parseResult); // Ensure result state is updated
         } else {
+          console.log('🔄 Starting new parse...');
           // No background parse started, parse now
           parseResult = await parseScoreAPI.parseCV(file, true);
+          console.log('✅ New parse completed:', { hasResult: !!parseResult });
           setResult(parseResult);
         }
       } else {
+        console.log('✅ Using existing result');
         // Ensure result state is set even if we already have it
         setResult(parseResult);
       }
 
+      console.log('💾 Incrementing parse usage...');
       // Increment usage after successful parse
       await incrementParseUsage(1);
+      console.log('✅ Usage incremented');
 
+      console.log('📈 Tracking analytics event...');
       // Track analytics event
       await trackEvent('cv_parsed', {
         filename: file.name,
         filesize: file.size,
         role_id: selectedRole
       });
+      console.log('✅ Analytics tracked');
+
+      console.log('🔧 Building candidate data...');
 
       // Adapt to actual API structure
       const parsedCandidate = parseResult.candidate || {};
