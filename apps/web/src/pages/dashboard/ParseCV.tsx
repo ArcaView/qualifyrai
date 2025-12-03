@@ -72,11 +72,9 @@ const ParseCV = () => {
   const [newRoleTitle, setNewRoleTitle] = useState("");
   const [showProcessing, setShowProcessing] = useState(false);
   const [parsingDialogOpen, setParsingDialogOpen] = useState(false);
-  const [parseProgress, setParseProgress] = useState(0);
 
   // Track background parsing promise to avoid duplicate API calls
   const backgroundParsePromise = useRef<Promise<any> | null>(null);
-  const progressInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Define handleParsingDialogClose before useEffects that use it
   const handleParsingDialogClose = useCallback(() => {
@@ -100,46 +98,16 @@ const ParseCV = () => {
     loadUsageData();
   }, [loadUsageData]);
 
-  // Animate progress bar while parsing
-  useEffect(() => {
-    if (parsingDialogOpen && showProcessing) {
-      setParseProgress(0);
-      // Simulate progress: increment by 2% every 100ms, cap at 90%
-      progressInterval.current = setInterval(() => {
-        setParseProgress(prev => {
-          if (prev >= 90) {
-            return 90; // Stay at 90% until actual parsing completes
-          }
-          return prev + 2;
-        });
-      }, 100);
-
-      return () => {
-        if (progressInterval.current) {
-          clearInterval(progressInterval.current);
-          progressInterval.current = null;
-        }
-      };
-    } else if (parsingDialogOpen && !showProcessing) {
-      // Parsing completed - jump to 100%
-      if (progressInterval.current) {
-        clearInterval(progressInterval.current);
-        progressInterval.current = null;
-      }
-      setParseProgress(100);
-    }
-  }, [parsingDialogOpen, showProcessing]);
-
   // Auto-close dialog when parsing completes
   useEffect(() => {
-    if (parsingDialogOpen && !showProcessing && result && parseProgress === 100) {
-      // Close after showing 100% for a moment
+    if (parsingDialogOpen && !showProcessing && result) {
+      // Close after brief delay
       const timer = setTimeout(() => {
         handleParsingDialogClose();
-      }, 800);
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [parsingDialogOpen, showProcessing, result, parseProgress, handleParsingDialogClose]);
+  }, [parsingDialogOpen, showProcessing, result, handleParsingDialogClose]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -572,47 +540,15 @@ const ParseCV = () => {
                       Processing CV
                     </DialogTitle>
                     <DialogDescription>
-                      {file?.name}
+                      Extracting information from {file?.name}
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="py-8">
-                    <div className="flex flex-col items-center gap-6">
-                      {/* Progress Circle */}
-                      <div className="relative w-32 h-32">
-                        <svg className="transform -rotate-90 w-32 h-32">
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="currentColor"
-                            strokeWidth="8"
-                            fill="none"
-                            className="text-muted"
-                          />
-                          <circle
-                            cx="64"
-                            cy="64"
-                            r="56"
-                            stroke="currentColor"
-                            strokeWidth="8"
-                            fill="none"
-                            strokeDasharray={`${2 * Math.PI * 56}`}
-                            strokeDashoffset={`${2 * Math.PI * 56 * (1 - parseProgress / 100)}`}
-                            className="text-primary transition-all duration-300 ease-out"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-4xl font-bold text-primary">{parseProgress}%</span>
-                        </div>
-                      </div>
-
-                      {/* Status message */}
-                      <div className="text-center space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">
-                          Extracting candidate information
-                        </p>
-                      </div>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      <p className="text-sm text-muted-foreground">
+                        Please wait...
+                      </p>
                     </div>
                   </div>
                 </DialogContent>
