@@ -89,12 +89,23 @@ const ParseCV = () => {
 
   // Auto-close dialog when results are ready
   useEffect(() => {
+    console.log('🔍 Auto-close check:', {
+      parsingDialogOpen,
+      hasResult: !!result,
+      showProcessing,
+      shouldClose: parsingDialogOpen && result && !showProcessing
+    });
+
     if (parsingDialogOpen && result && !showProcessing) {
-      // Results are displayed, close the dialog after brief delay
+      console.log('✅ Starting auto-close timer (800ms)');
       const timer = setTimeout(() => {
+        console.log('🚪 Auto-closing dialog now');
         setParsingDialogOpen(false);
       }, 800);
-      return () => clearTimeout(timer);
+      return () => {
+        console.log('🧹 Clearing auto-close timer');
+        clearTimeout(timer);
+      };
     }
   }, [parsingDialogOpen, result, showProcessing]);
 
@@ -163,11 +174,15 @@ const ParseCV = () => {
         if (backgroundParsePromise.current) {
           // Wait for background parsing to complete (avoids duplicate API call)
           parseResult = await backgroundParsePromise.current;
+          setResult(parseResult); // Ensure result state is updated
         } else {
           // No background parse started, parse now
           parseResult = await parseScoreAPI.parseCV(file, true);
           setResult(parseResult);
         }
+      } else {
+        // Ensure result state is set even if we already have it
+        setResult(parseResult);
       }
 
       // Increment usage after successful parse
