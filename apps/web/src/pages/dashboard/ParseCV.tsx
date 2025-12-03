@@ -529,9 +529,17 @@ const ParseCV = () => {
 
               {/* Parsing Dialog */}
               <Dialog open={parsingDialogOpen} onOpenChange={(open) => !open && handleParsingDialogClose()}>
-                <DialogContent className="sm:max-w-md">
-                  <div className="flex items-center justify-center py-12">
-                    <p className="text-lg font-medium text-muted-foreground">Processing CV...</p>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Processing CV</DialogTitle>
+                    <DialogDescription>
+                      Please wait while we extract candidate information
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4">
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-8 h-8 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
