@@ -80,18 +80,15 @@ const ParseCV = () => {
   const handleParsingDialogClose = useCallback(() => {
     setParsingDialogOpen(false);
 
-    // If parsing completed successfully, reset form (no toast needed - results are visible)
-    if (result && !showProcessing) {
-      // Reset form after successful addition
-      setFile(null);
-      setResult(null);
-      setScoreResult(null);
-      setJobDescription("");
-      // Clear file input
-      const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-    }
-  }, [result, showProcessing]);
+    // Reset form after successful addition
+    setFile(null);
+    setResult(null);
+    setScoreResult(null);
+    setJobDescription("");
+    // Clear file input
+    const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  }, []);
 
   // Load usage data on mount
   useEffect(() => {
