@@ -95,16 +95,15 @@ const ParseCV = () => {
     loadUsageData();
   }, [loadUsageData]);
 
-  // Auto-close dialog when parsing completes
+  // Auto-close dialog after 3 seconds
   useEffect(() => {
-    if (parsingDialogOpen && !showProcessing && result) {
-      // Close after brief delay
+    if (parsingDialogOpen) {
       const timer = setTimeout(() => {
         handleParsingDialogClose();
-      }, 500);
+      }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [parsingDialogOpen, showProcessing, result, handleParsingDialogClose]);
+  }, [parsingDialogOpen, handleParsingDialogClose]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -531,22 +530,8 @@ const ParseCV = () => {
               {/* Parsing Dialog */}
               <Dialog open={parsingDialogOpen} onOpenChange={(open) => !open && handleParsingDialogClose()}>
                 <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      Processing CV
-                    </DialogTitle>
-                    <DialogDescription>
-                      Extracting information from {file?.name}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="flex items-center justify-center py-8">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                      <p className="text-sm text-muted-foreground">
-                        Please wait...
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-lg font-medium">CV processed successfully</p>
                   </div>
                 </DialogContent>
               </Dialog>
