@@ -117,22 +117,29 @@ const ParseCV = () => {
       return () => {
         if (progressInterval.current) {
           clearInterval(progressInterval.current);
+          progressInterval.current = null;
         }
       };
+    } else if (parsingDialogOpen && !showProcessing) {
+      // Parsing completed - jump to 100%
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+        progressInterval.current = null;
+      }
+      setParseProgress(100);
     }
   }, [parsingDialogOpen, showProcessing]);
 
   // Auto-close dialog when parsing completes
   useEffect(() => {
-    if (parsingDialogOpen && !showProcessing && result) {
-      // Jump to 100% and close after brief delay
-      setParseProgress(100);
+    if (parsingDialogOpen && !showProcessing && result && parseProgress === 100) {
+      // Close after showing 100% for a moment
       const timer = setTimeout(() => {
         handleParsingDialogClose();
-      }, 500);
+      }, 800);
       return () => clearTimeout(timer);
     }
-  }, [parsingDialogOpen, showProcessing, result, handleParsingDialogClose]);
+  }, [parsingDialogOpen, showProcessing, result, parseProgress, handleParsingDialogClose]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
