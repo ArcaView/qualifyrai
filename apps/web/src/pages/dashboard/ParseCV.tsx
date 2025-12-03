@@ -128,17 +128,10 @@ const ParseCV = () => {
   };
 
   const handleParse = async () => {
-    console.log('🚀 handleParse started', { hasFile: !!file, hasRole: !!selectedRole });
-
-    if (!file || !selectedRole) {
-      console.log('❌ Missing file or selectedRole');
-      return;
-    }
+    if (!file || !selectedRole) return;
 
     // Check quota before parsing
-    console.log('🔍 Checking quota...', { canParse: canParse(1) });
     if (!canParse(1)) {
-      console.log('❌ Quota exceeded');
       toast({
         title: "Quota Exceeded",
         description: `You've used all ${limits?.max_parses || 0} parses this month. Upgrade your plan to continue.`,
@@ -147,51 +140,36 @@ const ParseCV = () => {
       return;
     }
 
-    console.log('✅ Quota check passed, opening dialog');
-
     // Show dialog immediately for user engagement
     setParsingDialogOpen(true);
     setShowProcessing(true);
 
-    console.log('📊 Dialog opened, showProcessing=true');
-
     try {
       let parseResult = result;
-      console.log('📊 Current result state:', { hasResult: !!result });
 
       // If we don't have a result yet, check if background parsing is in progress
       if (!parseResult) {
-        console.log('⏳ No result yet, checking background promise');
         if (backgroundParsePromise.current) {
-          console.log('⏳ Waiting for background promise...');
           // Wait for background parsing to complete (avoids duplicate API call)
           parseResult = await backgroundParsePromise.current;
-          console.log('✅ Background promise resolved:', { hasResult: !!parseResult });
-          setResult(parseResult); // Ensure result state is updated
+          setResult(parseResult);
         } else {
-          console.log('🔄 Starting new parse...');
           // No background parse started, parse now
           parseResult = await parseScoreAPI.parseCV(file, true);
-          console.log('✅ New parse completed:', { hasResult: !!parseResult });
           setResult(parseResult);
         }
       } else {
-        console.log('✅ Using existing result');
         // Ensure result state is set even if we already have it
         setResult(parseResult);
       }
 
-      console.log('💾 Incrementing parse usage...');
       // Increment usage after successful parse (don't block on this)
       try {
         await incrementParseUsage(1);
-        console.log('✅ Usage incremented');
       } catch (usageError: any) {
-        console.error('⚠️ Failed to increment usage, but continuing:', usageError);
-        // Don't block the UI if usage tracking fails
+        console.error('Failed to increment usage:', usageError);
       }
 
-      console.log('📈 Tracking analytics event...');
       // Track analytics event (don't block on this either)
       try {
         await trackEvent('cv_parsed', {
@@ -199,13 +177,9 @@ const ParseCV = () => {
           filesize: file.size,
           role_id: selectedRole
         });
-        console.log('✅ Analytics tracked');
       } catch (analyticsError: any) {
-        console.error('⚠️ Failed to track analytics, but continuing:', analyticsError);
-        // Don't block the UI if analytics fail
+        console.error('Failed to track analytics:', analyticsError);
       }
-
-      console.log('🔧 Building candidate data...');
 
       // Adapt to actual API structure
       const parsedCandidate = parseResult.candidate || {};
@@ -268,21 +242,15 @@ const ParseCV = () => {
         })
       };
 
-      console.log('📝 Adding candidate to role...');
       addCandidateToRole(selectedRole, candidateData);
-      console.log('✅ Candidate added successfully');
 
-      // Parsing complete - hide processing indicator and close dialog
-      console.log('🔄 Setting showProcessing to false and scheduling dialog close');
+      // Parsing complete - hide processing indicator
       setShowProcessing(false);
 
       // Auto-close dialog after brief delay to show results
-      const closeTimer = setTimeout(() => {
-        console.log('🚪 Explicitly closing dialog after parse complete');
+      setTimeout(() => {
         setParsingDialogOpen(false);
       }, 800);
-
-      console.log(`⏰ Close timer scheduled: ${closeTimer}`);
 
     } catch (error: any) {
       // TODO: Replace with proper error logging service (e.g., Sentry)
