@@ -95,12 +95,12 @@ const ParseCV = () => {
     loadUsageData();
   }, [loadUsageData]);
 
-  // Auto-close dialog after 3 seconds
+  // Auto-close dialog after 7 seconds
   useEffect(() => {
     if (parsingDialogOpen) {
       const timer = setTimeout(() => {
         handleParsingDialogClose();
-      }, 3000);
+      }, 7000);
       return () => clearTimeout(timer);
     }
   }, [parsingDialogOpen, handleParsingDialogClose]);
@@ -531,7 +531,7 @@ const ParseCV = () => {
               <Dialog open={parsingDialogOpen} onOpenChange={(open) => !open && handleParsingDialogClose()}>
                 <DialogContent className="sm:max-w-md">
                   <div className="flex items-center justify-center py-12">
-                    <p className="text-lg font-medium">CV processed successfully</p>
+                    <p className="text-lg font-medium text-muted-foreground">Processing CV...</p>
                   </div>
                 </DialogContent>
               </Dialog>
