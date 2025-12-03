@@ -90,13 +90,13 @@ const ParseCV = () => {
   // Auto-close dialog when results are ready
   useEffect(() => {
     if (parsingDialogOpen && result && !showProcessing) {
-      // Results are displayed, close the dialog
+      // Results are displayed, close the dialog after brief delay
       const timer = setTimeout(() => {
-        handleParsingDialogClose();
-      }, 500);
+        setParsingDialogOpen(false);
+      }, 800);
       return () => clearTimeout(timer);
     }
-  }, [parsingDialogOpen, result, showProcessing, handleParsingDialogClose]);
+  }, [parsingDialogOpen, result, showProcessing]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
