@@ -87,28 +87,6 @@ const ParseCV = () => {
     loadUsageData();
   }, [loadUsageData]);
 
-  // Auto-close dialog when results are ready
-  useEffect(() => {
-    console.log('🔍 Auto-close check:', {
-      parsingDialogOpen,
-      hasResult: !!result,
-      showProcessing,
-      shouldClose: parsingDialogOpen && result && !showProcessing
-    });
-
-    if (parsingDialogOpen && result && !showProcessing) {
-      console.log('✅ Starting auto-close timer (800ms)');
-      const timer = setTimeout(() => {
-        console.log('🚪 Auto-closing dialog now');
-        setParsingDialogOpen(false);
-      }, 800);
-      return () => {
-        console.log('🧹 Clearing auto-close timer');
-        clearTimeout(timer);
-      };
-    }
-  }, [parsingDialogOpen, result, showProcessing]);
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
@@ -256,16 +234,21 @@ const ParseCV = () => {
         })
       };
 
+      console.log('📝 Adding candidate to role...');
       addCandidateToRole(selectedRole, candidateData);
+      console.log('✅ Candidate added successfully');
 
-      // Parsing complete - hide processing indicator
+      // Parsing complete - hide processing indicator and close dialog
+      console.log('🔄 Setting showProcessing to false and scheduling dialog close');
       setShowProcessing(false);
 
       // Auto-close dialog after brief delay to show results
-      setTimeout(() => {
+      const closeTimer = setTimeout(() => {
         console.log('🚪 Explicitly closing dialog after parse complete');
         setParsingDialogOpen(false);
       }, 800);
+
+      console.log(`⏰ Close timer scheduled: ${closeTimer}`);
 
     } catch (error: any) {
       // TODO: Replace with proper error logging service (e.g., Sentry)
