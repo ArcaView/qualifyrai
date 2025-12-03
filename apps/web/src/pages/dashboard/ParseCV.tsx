@@ -258,11 +258,14 @@ const ParseCV = () => {
 
       addCandidateToRole(selectedRole, candidateData);
 
-      // Parsing complete - enable the Continue button in dialog
+      // Parsing complete - hide processing indicator
       setShowProcessing(false);
 
-      // Don't show toast or reset form yet - let user close dialog first
-      // They'll see results when they click Continue
+      // Auto-close dialog after brief delay to show results
+      setTimeout(() => {
+        console.log('🚪 Explicitly closing dialog after parse complete');
+        setParsingDialogOpen(false);
+      }, 800);
 
     } catch (error: any) {
       // TODO: Replace with proper error logging service (e.g., Sentry)
