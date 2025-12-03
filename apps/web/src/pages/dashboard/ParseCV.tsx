@@ -79,15 +79,7 @@ const ParseCV = () => {
   // Define handleParsingDialogClose before useEffects that use it
   const handleParsingDialogClose = useCallback(() => {
     setParsingDialogOpen(false);
-
-    // Reset form after successful addition
-    setFile(null);
-    setResult(null);
-    setScoreResult(null);
-    setJobDescription("");
-    // Clear file input
-    const fileInput = document.getElementById('cv-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+    // Don't reset results - let them stay visible for the user
   }, []);
 
   // Load usage data on mount
