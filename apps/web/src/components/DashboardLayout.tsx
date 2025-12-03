@@ -58,6 +58,8 @@ const navItems = [
     href: "/dashboard/cover-letter",
     icon: FileText,
     description: "Review and analyze cover letters",
+    disabled: true,
+    comingSoon: true,
   },
   {
     title: "Analytics",
@@ -158,6 +160,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
+                const isDisabled = item.disabled;
 
                 // Add data-tour attributes to specific nav items
                 const getTourAttr = () => {
@@ -167,6 +170,24 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   if (item.href === "/dashboard/developer") return "nav-developer";
                   return undefined;
                 };
+
+                if (isDisabled) {
+                  return (
+                    <div
+                      key={item.href}
+                      title="Coming Soon"
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm cursor-not-allowed opacity-50"
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          {item.title}
+                          <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Soon</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <Link
@@ -213,6 +234,21 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
+                const isDisabled = item.disabled;
+
+                if (isDisabled) {
+                  return (
+                    <div
+                      key={item.href}
+                      title="Coming Soon"
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap cursor-not-allowed opacity-50"
+                    >
+                      <Icon className="w-4 h-4" />
+                      {item.title}
+                      <span className="text-xs bg-muted px-1.5 py-0.5 rounded">Soon</span>
+                    </div>
+                  );
+                }
 
                 return (
                   <Link
