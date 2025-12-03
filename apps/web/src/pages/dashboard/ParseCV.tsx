@@ -182,18 +182,28 @@ const ParseCV = () => {
       }
 
       console.log('💾 Incrementing parse usage...');
-      // Increment usage after successful parse
-      await incrementParseUsage(1);
-      console.log('✅ Usage incremented');
+      // Increment usage after successful parse (don't block on this)
+      try {
+        await incrementParseUsage(1);
+        console.log('✅ Usage incremented');
+      } catch (usageError: any) {
+        console.error('⚠️ Failed to increment usage, but continuing:', usageError);
+        // Don't block the UI if usage tracking fails
+      }
 
       console.log('📈 Tracking analytics event...');
-      // Track analytics event
-      await trackEvent('cv_parsed', {
-        filename: file.name,
-        filesize: file.size,
-        role_id: selectedRole
-      });
-      console.log('✅ Analytics tracked');
+      // Track analytics event (don't block on this either)
+      try {
+        await trackEvent('cv_parsed', {
+          filename: file.name,
+          filesize: file.size,
+          role_id: selectedRole
+        });
+        console.log('✅ Analytics tracked');
+      } catch (analyticsError: any) {
+        console.error('⚠️ Failed to track analytics, but continuing:', analyticsError);
+        // Don't block the UI if analytics fail
+      }
 
       console.log('🔧 Building candidate data...');
 
