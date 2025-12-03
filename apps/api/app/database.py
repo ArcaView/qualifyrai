@@ -4,16 +4,67 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import OperationalError, DatabaseError
 from contextlib import contextmanager
 from typing import Generator, Optional, Dict, Any
+from urllib.parse import quote_plus, urlparse, urlunparse
 import os
 import logging
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+def encode_database_url(url: str) -> str:
+    """
+    Encode special characters in database URL password.
+
+    This is necessary for passwords containing special characters like %, &, #, ^, $
+    which need to be URL-encoded to work correctly in connection strings.
+    """
+    try:
+        # Parse the URL
+        parsed = urlparse(url)
+
+        # If there's no password, return as-is
+        if not parsed.password:
+            return url
+
+        # URL-encode the password
+        encoded_password = quote_plus(parsed.password)
+
+        # Rebuild the netloc with encoded password
+        if parsed.username:
+            netloc = f"{parsed.username}:{encoded_password}@{parsed.hostname}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+        else:
+            netloc = parsed.netloc
+
+        # Reconstruct the URL
+        encoded_url = urlunparse((
+            parsed.scheme,
+            netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment
+        ))
+
+        logger.info("Successfully encoded database URL password")
+        return encoded_url
+
+    except Exception as e:
+        logger.warning(f"Failed to encode database URL: {e}. Using original URL.")
+        return url
+
 # Database URL from environment
-DATABASE_URL = os.getenv(
+raw_database_url = os.getenv(
     "DATABASE_URL",
     "postgresql+psycopg://dev:dev@localhost:5432/parsescore"
 )
+
+# Encode the database URL to handle special characters in password
+DATABASE_URL = encode_database_url(raw_database_url)
 
 # Create engine with robust connection pooling
 engine = create_engine(
@@ -26,7 +77,8 @@ engine = create_engine(
     echo=False,                # Set to True for SQL debugging
     connect_args={
         "connect_timeout": 10,  # Connection timeout in seconds
-        "options": "-c statement_timeout=30000"  # 30 second query timeout
+        "options": "-c statement_timeout=30000",  # 30 second query timeout
+        "sslmode": "require"  # Require SSL for Supabase connection
     }
 )
 

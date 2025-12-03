@@ -36,7 +36,7 @@ import {
   Sparkles,
   ArrowRight,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRoles } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { parseScoreAPI } from "@/lib/api";
@@ -63,7 +63,6 @@ const ParseCV = () => {
   } = useUsage();
 
   const [file, setFile] = useState<File | null>(null);
-  const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [scoring, setScoring] = useState(false);
@@ -71,6 +70,17 @@ const ParseCV = () => {
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [newRoleDialogOpen, setNewRoleDialogOpen] = useState(false);
   const [newRoleTitle, setNewRoleTitle] = useState("");
+  const [showProcessing, setShowProcessing] = useState(false);
+  const [parsingDialogOpen, setParsingDialogOpen] = useState(false);
+
+  // Track background parsing promise to avoid duplicate API calls
+  const backgroundParsePromise = useRef<Promise<any> | null>(null);
+
+  // Define handleParsingDialogClose before useEffects that use it
+  const handleParsingDialogClose = useCallback(() => {
+    setParsingDialogOpen(false);
+    // Don't reset results - let them stay visible for the user
+  }, []);
 
   // Load usage data on mount
   useEffect(() => {
@@ -80,10 +90,10 @@ const ParseCV = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      
+
       // Validate file before accepting
       const validation = validateFile(selectedFile);
-      
+
       if (!validation.valid) {
         toast({
           title: "Invalid File",
@@ -94,15 +104,26 @@ const ParseCV = () => {
         setFile(null);
         return;
       }
-      
+
       setFile(selectedFile);
       setResult(null);
       setScoreResult(null);
-      
-      toast({
-        title: "File Selected",
-        description: `${selectedFile.name} (${formatFileSize(selectedFile.size)}) is ready to parse.`,
-      });
+      setShowProcessing(false);
+
+      // Silently start parsing in background - no user indication
+      // Store promise to avoid duplicate parsing if user clicks button quickly
+      backgroundParsePromise.current = (async () => {
+        try {
+          const parseResult = await parseScoreAPI.parseCV(selectedFile, true);
+          setResult(parseResult);
+          return parseResult;
+        } catch (error: any) {
+          // Silently fail - will retry when user clicks Parse button
+          console.error('Background parse failed:', error);
+          setResult(null);
+          return null;
+        }
+      })();
     }
   };
 
@@ -119,22 +140,46 @@ const ParseCV = () => {
       return;
     }
 
-    setParsing(true);
+    // Show dialog immediately for user engagement
+    setParsingDialogOpen(true);
+    setShowProcessing(true);
 
     try {
-      const parseResult = await parseScoreAPI.parseCV(file, true);
+      let parseResult = result;
 
-      setResult(parseResult);
+      // If we don't have a result yet, check if background parsing is in progress
+      if (!parseResult) {
+        if (backgroundParsePromise.current) {
+          // Wait for background parsing to complete (avoids duplicate API call)
+          parseResult = await backgroundParsePromise.current;
+          setResult(parseResult);
+        } else {
+          // No background parse started, parse now
+          parseResult = await parseScoreAPI.parseCV(file, true);
+          setResult(parseResult);
+        }
+      } else {
+        // Ensure result state is set even if we already have it
+        setResult(parseResult);
+      }
 
-      // Increment usage after successful parse
-      await incrementParseUsage(1);
+      // Increment usage after successful parse (don't block on this)
+      try {
+        await incrementParseUsage(1);
+      } catch (usageError: any) {
+        console.error('Failed to increment usage:', usageError);
+      }
 
-      // Track analytics event
-      await trackEvent('cv_parsed', {
-        filename: file.name,
-        filesize: file.size,
-        role_id: selectedRole
-      });
+      // Track analytics event (don't block on this either)
+      try {
+        await trackEvent('cv_parsed', {
+          filename: file.name,
+          filesize: file.size,
+          role_id: selectedRole
+        });
+      } catch (analyticsError: any) {
+        console.error('Failed to track analytics:', analyticsError);
+      }
 
       // Adapt to actual API structure
       const parsedCandidate = parseResult.candidate || {};
@@ -188,15 +233,24 @@ const ParseCV = () => {
         linkedin_url: contact.linkedin_url || parsedCandidate.linkedin_url,
         portfolio_url: contact.portfolio_url || parsedCandidate.website_url,
         // Store the entire parsed candidate object for reference
-        cv_parsed_data: parsedCandidate
+        cv_parsed_data: parsedCandidate,
+        // Include scoring data if available
+        ...(scoreResult && {
+          score: scoreResult.overall_score,
+          score_breakdown: scoreResult.breakdown,
+          fit: scoreResult.fit
+        })
       };
 
       addCandidateToRole(selectedRole, candidateData);
 
-      toast({
-        title: "CV Parsed Successfully",
-        description: `${contact.full_name || 'Candidate'} has been added to the role.`,
-      });
+      // Parsing complete - hide processing indicator
+      setShowProcessing(false);
+
+      // Auto-close dialog after brief delay to show results
+      setTimeout(() => {
+        setParsingDialogOpen(false);
+      }, 800);
 
     } catch (error: any) {
       // TODO: Replace with proper error logging service (e.g., Sentry)
@@ -205,8 +259,8 @@ const ParseCV = () => {
         description: error.message || "Failed to parse CV. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setParsing(false);
+      setShowProcessing(false);
+      setParsingDialogOpen(false);
     }
   };
 
@@ -469,13 +523,30 @@ const ParseCV = () => {
                 </p>
               </div>
 
+              {/* Parsing Dialog */}
+              <Dialog open={parsingDialogOpen} onOpenChange={(open) => !open && handleParsingDialogClose()}>
+                <DialogContent className="sm:max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">Processing CV</DialogTitle>
+                    <DialogDescription className="text-base">
+                      Please wait while we extract candidate information
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-2">
+                    <div className="flex items-center justify-center py-4">
+                      <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               <Button
                 onClick={handleParse}
-                disabled={!file || parsing || !selectedRole}
+                disabled={!file || !selectedRole || showProcessing}
                 className="w-full"
                 size="lg"
               >
-                {parsing ? "Parsing..." : "Parse CV"}
+                {showProcessing ? "Parsing..." : "Parse CV"}
               </Button>
 
               <div className="grid grid-cols-2 gap-4 pt-4 border-t">
