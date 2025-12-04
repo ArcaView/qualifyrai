@@ -133,7 +133,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
       <div className="flex-1 flex">
         {/* Sidebar */}
-        <aside className="w-64 border-r border-border bg-muted/30 hidden md:block">
+        <aside className="w-72 border-r border-border bg-muted/30 hidden md:block">
           <div className="sticky top-16 p-6 space-y-1">
             <div className="mb-4">
               <h2 className="text-lg font-semibold mb-1">Dashboard</h2>
