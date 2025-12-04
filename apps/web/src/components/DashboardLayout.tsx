@@ -178,15 +178,20 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     <div
                       key={item.href}
                       data-tour={getTourAttr()}
-                      title={isComingSoon ? "Coming Soon" : undefined}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                        "text-muted-foreground cursor-not-allowed opacity-50"
+                        "group relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200",
+                        "text-muted-foreground cursor-not-allowed opacity-50",
+                        "hover:opacity-70 hover:bg-muted/50"
                       )}
                     >
                       <Icon className="w-4 h-4 flex-shrink-0" />
-                      <div className="flex-1">
+                      <div className="flex-1 flex items-center justify-between">
                         <div>{item.title}</div>
+                        {isComingSoon && (
+                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            Soon
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -245,14 +250,19 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   return (
                     <div
                       key={item.href}
-                      title={isComingSoon ? "Coming Soon" : undefined}
                       className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors",
-                        "text-muted-foreground cursor-not-allowed opacity-50"
+                        "group relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-all duration-200",
+                        "text-muted-foreground cursor-not-allowed opacity-50",
+                        "hover:opacity-70 hover:bg-muted/50"
                       )}
                     >
                       <Icon className="w-4 h-4" />
                       {item.title}
+                      {isComingSoon && (
+                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-1">
+                          Soon
+                        </span>
+                      )}
                     </div>
                   );
                 }
