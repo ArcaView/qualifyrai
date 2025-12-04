@@ -93,6 +93,7 @@ const RoleDetails = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState<string | null>(null);
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
 
   const handleViewCandidate = (candidate: Candidate) => {
     setViewCandidate(candidate);
@@ -132,6 +133,7 @@ const RoleDetails = () => {
       });
       setSelectedCandidates([]);
       setDeleteDialogOpen(false);
+      setSelectionMode(false); // Exit selection mode after deleting
       toast({
         title: "Candidates Removed",
         description: `${selectedCandidates.length} candidate${selectedCandidates.length > 1 ? 's' : ''} removed from this role.`,
@@ -157,6 +159,18 @@ const RoleDetails = () => {
 
   const clearSelection = () => {
     setSelectedCandidates([]);
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    if (selectionMode) {
+      // Exiting selection mode, clear selections
+      setSelectedCandidates([]);
+    }
+  };
+
+  const handleDeleteAll = () => {
+    setDeleteDialogOpen(true);
   };
 
   const sortedCandidates = [...candidates].sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -268,69 +282,62 @@ const RoleDetails = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Candidates</h2>
             <div className="flex items-center gap-2">
-              {candidates.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={downloadCandidateSummary}
-                  className="border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30"
-                >
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Download Summary PDF
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Bulk Actions Toolbar */}
-          {selectedCandidates.length > 0 && (
-            <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearSelection}
-                      className="h-8 px-2"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm font-medium">
-                      {selectedCandidates.length} candidate{selectedCandidates.length > 1 ? 's' : ''} selected
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
+              {!selectionMode ? (
+                <>
+                  {candidates.length > 0 && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleSelectionMode}
+                      >
+                        Select Multiple
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadCandidateSummary}
+                        className="border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Download Summary PDF
+                      </Button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground mr-2">
+                    {selectedCandidates.length} selected
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSelectAll}
+                  >
+                    {selectedCandidates.length === candidates.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  {selectedCandidates.length > 0 && (
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={handleBulkDelete}
+                      onClick={handleDeleteAll}
                     >
                       <Trash2 className="w-4 h-4 mr-2" />
-                      Remove Selected
+                      Delete Selected
                     </Button>
-                  </div>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleSelectionMode}
+                  >
+                    Cancel
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Select All Checkbox */}
-          {candidates.length > 0 && (
-            <div className="flex items-center gap-2 px-1">
-              <Checkbox
-                id="select-all-candidates"
-                checked={selectedCandidates.length === candidates.length}
-                onCheckedChange={toggleSelectAll}
-              />
-              <label
-                htmlFor="select-all-candidates"
-                className="text-sm font-medium cursor-pointer"
-              >
-                Select all ({candidates.length})
-              </label>
+              )}
             </div>
-          )}
+          </div>
 
           {candidates.length === 0 ? (
             <Card>
@@ -356,20 +363,22 @@ const RoleDetails = () => {
               <Card
                 key={candidate.id}
                 className={`transition-colors ${
-                  selectedCandidates.includes(candidate.id) ? 'border-primary bg-primary/5' : ''
+                  selectedCandidates.includes(candidate.id) && selectionMode ? 'border-primary bg-primary/5' : ''
                 }`}
               >
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
-                      {/* Checkbox */}
-                      <div className="flex-shrink-0 pt-2">
-                        <Checkbox
-                          checked={selectedCandidates.includes(candidate.id)}
-                          onCheckedChange={() => toggleCandidateSelection(candidate.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
+                      {/* Checkbox - only show in selection mode */}
+                      {selectionMode && (
+                        <div className="flex-shrink-0 pt-2">
+                          <Checkbox
+                            checked={selectedCandidates.includes(candidate.id)}
+                            onCheckedChange={() => toggleCandidateSelection(candidate.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
 
                       {/* Rank Badge */}
                       {index === 0 && candidate.score && candidate.score >= 85 && (
