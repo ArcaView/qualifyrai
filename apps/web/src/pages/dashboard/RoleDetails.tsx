@@ -5,10 +5,20 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -39,6 +49,7 @@ import {
   Download,
   Sparkles,
   X,
+  Edit,
 } from "lucide-react";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -94,6 +105,15 @@ const RoleDetails = () => {
   const [candidateToDelete, setCandidateToDelete] = useState<string | null>(null);
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    department: '',
+    location: '',
+    type: 'full-time',
+    salary: '',
+    description: '',
+  });
 
   const handleViewCandidate = (candidate: Candidate) => {
     setViewCandidate(candidate);
@@ -173,6 +193,39 @@ const RoleDetails = () => {
     setDeleteDialogOpen(true);
   };
 
+  const handleEditRole = () => {
+    if (role) {
+      setFormData({
+        title: role.title,
+        department: role.department,
+        location: role.location,
+        type: role.type,
+        salary: role.salary,
+        description: role.description,
+      });
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handleUpdateRole = async () => {
+    if (id) {
+      try {
+        await updateRole(id, formData);
+        setEditDialogOpen(false);
+        toast({
+          title: "Role Updated",
+          description: "The role has been successfully updated.",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Update Failed",
+          description: error.message || "Failed to update role.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const sortedCandidates = [...candidates].sort((a, b) => (b.score || 0) - (a.score || 0));
 
   const getFitColor = (fit?: string) => {
@@ -250,15 +303,25 @@ const RoleDetails = () => {
                   )}
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2 ml-4">
-                <Switch
-                  id="role-status"
-                  checked={role.status === 'active'}
-                  onCheckedChange={handleToggleStatus}
-                />
-                <Label htmlFor="role-status" className="cursor-pointer text-sm font-medium">
-                  {role.status === 'active' ? 'Active' : 'Inactive'}
-                </Label>
+              <div className="flex items-center gap-3 ml-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditRole}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Role
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="role-status"
+                    checked={role.status === 'active'}
+                    onCheckedChange={handleToggleStatus}
+                  />
+                  <Label htmlFor="role-status" className="cursor-pointer text-sm font-medium">
+                    {role.status === 'active' ? 'Active' : 'Inactive'}
+                  </Label>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -654,6 +717,105 @@ const RoleDetails = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Edit Role Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Role</DialogTitle>
+              <DialogDescription>
+                Update the role details below.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-title">Job Title *</Label>
+                  <Input
+                    id="edit-title"
+                    placeholder="e.g., Senior Software Engineer"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-department">Department *</Label>
+                  <Input
+                    id="edit-department"
+                    placeholder="e.g., Engineering"
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-location">Location *</Label>
+                  <Input
+                    id="edit-location"
+                    placeholder="e.g., Remote or New York, NY"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">Employment Type *</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  >
+                    <SelectTrigger id="edit-type">
+                      <SelectValue placeholder="Select employment type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full-time">Full-time</SelectItem>
+                      <SelectItem value="part-time">Part-time</SelectItem>
+                      <SelectItem value="contract">Contract</SelectItem>
+                      <SelectItem value="freelance">Freelance</SelectItem>
+                      <SelectItem value="temporary">Temporary</SelectItem>
+                      <SelectItem value="internship">Internship</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-salary">Salary Range</Label>
+                <Input
+                  id="edit-salary"
+                  placeholder="e.g., $120k - $160k"
+                  value={formData.salary}
+                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Job Description *</Label>
+                <Textarea
+                  id="edit-description"
+                  placeholder="Describe the role, responsibilities, and requirements..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="min-h-[120px]"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateRole}
+                disabled={!formData.title || !formData.department || !formData.location || !formData.description}
+              >
+                Update Role
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
