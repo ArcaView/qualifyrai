@@ -2,8 +2,8 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -34,6 +34,7 @@ import {
   Mail,
   Phone,
   MapPin,
+  Info,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRoles } from "@/contexts/RolesContext";
@@ -65,7 +66,6 @@ const BulkParse = () => {
   const [files, setFiles] = useState<FileWithStatus[]>([]);
   const [processing, setProcessing] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>("");
-  const [jobDescription, setJobDescription] = useState("");
   const [newRoleDialogOpen, setNewRoleDialogOpen] = useState(false);
   const [newRoleTitle, setNewRoleTitle] = useState("");
 
@@ -129,7 +129,7 @@ const BulkParse = () => {
       location: "TBD",
       type: "Full-time",
       salary: "TBD",
-      description: jobDescription || "Role description to be added",
+      description: "Role description to be added",
     };
 
     addRole(newRoleData);
@@ -355,6 +355,14 @@ const BulkParse = () => {
           )}
         </div>
 
+        {/* Info Alert */}
+        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
+          <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-800 dark:text-blue-300">
+            Bulk parsing extracts CV information only. To get AI scoring for these candidates, please visit each candidate's individual profile.
+          </AlertDescription>
+        </Alert>
+
         {/* Stats */}
         {files.length > 0 && (
           <div className="grid md:grid-cols-4 gap-4">
@@ -509,23 +517,6 @@ const BulkParse = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Required - Select an existing role or create a new one
-                </p>
-              </div>
-
-              {/* Job Description (Optional) */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label htmlFor="job-description">Job Description (Optional)</Label>
-                <Textarea
-                  id="job-description"
-                  placeholder="Paste the job description here to score candidates later..."
-                  value={jobDescription}
-                  onChange={(e) => setJobDescription(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                  disabled={processing}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Add a job description to enable scoring candidates against the role later
                 </p>
               </div>
 
