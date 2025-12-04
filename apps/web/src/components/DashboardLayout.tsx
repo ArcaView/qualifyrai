@@ -185,13 +185,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                       )}
                     >
                       <Icon className="w-4 h-4 flex-shrink-0" />
-                      <div className="flex-1 flex items-center justify-between">
+                      <div className="flex-1">
                         <div>{item.title}</div>
-                        {isComingSoon && (
-                          <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-medium">
-                            Soon
-                          </span>
-                        )}
                       </div>
                     </div>
                   );
@@ -258,11 +253,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     >
                       <Icon className="w-4 h-4" />
                       {item.title}
-                      {isComingSoon && (
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-medium ml-1">
-                          Soon
-                        </span>
-                      )}
                     </div>
                   );
                 }
