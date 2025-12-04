@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ import {
   AlertTriangle,
   Download,
   Sparkles,
+  X,
 } from "lucide-react";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -90,6 +92,7 @@ const RoleDetails = () => {
   const [dialogPage, setDialogPage] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState<string | null>(null);
+  const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
 
   const handleViewCandidate = (candidate: Candidate) => {
     setViewCandidate(candidate);
@@ -116,6 +119,44 @@ const RoleDetails = () => {
         description: "The candidate has been removed from this role.",
       });
     }
+  };
+
+  const handleBulkDelete = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmBulkDelete = () => {
+    if (id) {
+      selectedCandidates.forEach((candidateId) => {
+        removeCandidateFromRole(id, candidateId);
+      });
+      setSelectedCandidates([]);
+      setDeleteDialogOpen(false);
+      toast({
+        title: "Candidates Removed",
+        description: `${selectedCandidates.length} candidate${selectedCandidates.length > 1 ? 's' : ''} removed from this role.`,
+      });
+    }
+  };
+
+  const toggleCandidateSelection = (candidateId: string) => {
+    setSelectedCandidates((prev) =>
+      prev.includes(candidateId)
+        ? prev.filter((id) => id !== candidateId)
+        : [...prev, candidateId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCandidates.length === candidates.length) {
+      setSelectedCandidates([]);
+    } else {
+      setSelectedCandidates(candidates.map((c) => c.id));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedCandidates([]);
   };
 
   const sortedCandidates = [...candidates].sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -241,6 +282,56 @@ const RoleDetails = () => {
             </div>
           </div>
 
+          {/* Bulk Actions Toolbar */}
+          {selectedCandidates.length > 0 && (
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSelection}
+                      className="h-8 px-2"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm font-medium">
+                      {selectedCandidates.length} candidate{selectedCandidates.length > 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleBulkDelete}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remove Selected
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Select All Checkbox */}
+          {candidates.length > 0 && (
+            <div className="flex items-center gap-2 px-1">
+              <Checkbox
+                id="select-all-candidates"
+                checked={selectedCandidates.length === candidates.length}
+                onCheckedChange={toggleSelectAll}
+              />
+              <label
+                htmlFor="select-all-candidates"
+                className="text-sm font-medium cursor-pointer"
+              >
+                Select all ({candidates.length})
+              </label>
+            </div>
+          )}
+
           {candidates.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -262,10 +353,24 @@ const RoleDetails = () => {
             </Card>
           ) : (
             sortedCandidates.map((candidate, index) => (
-              <Card key={candidate.id}>
+              <Card
+                key={candidate.id}
+                className={`transition-colors ${
+                  selectedCandidates.includes(candidate.id) ? 'border-primary bg-primary/5' : ''
+                }`}
+              >
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
+                      {/* Checkbox */}
+                      <div className="flex-shrink-0 pt-2">
+                        <Checkbox
+                          checked={selectedCandidates.includes(candidate.id)}
+                          onCheckedChange={() => toggleCandidateSelection(candidate.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+
                       {/* Rank Badge */}
                       {index === 0 && candidate.score && candidate.score >= 85 && (
                         <div className="flex-shrink-0">
@@ -507,21 +612,35 @@ const RoleDetails = () => {
                 <div className="p-2 bg-destructive/10 rounded-full">
                   <AlertTriangle className="w-5 h-5 text-destructive" />
                 </div>
-                <AlertDialogTitle>Delete Candidate</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {selectedCandidates.length > 0 && !candidateToDelete
+                    ? `Remove ${selectedCandidates.length} Candidate${selectedCandidates.length > 1 ? 's' : ''}`
+                    : 'Remove Candidate'}
+                </AlertDialogTitle>
               </div>
               <AlertDialogDescription className="text-base">
-                Are you sure you want to remove this candidate from this role? This action cannot be undone.
+                {selectedCandidates.length > 0 && !candidateToDelete ? (
+                  <>
+                    Are you sure you want to remove {selectedCandidates.length} candidate{selectedCandidates.length > 1 ? 's' : ''} from this role? This action cannot be undone.
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to remove this candidate from this role? This action cannot be undone.
+                  </>
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setCandidateToDelete(null)}>
+              <AlertDialogCancel onClick={() => {
+                setCandidateToDelete(null);
+              }}>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={confirmDeleteCandidate}
+                onClick={selectedCandidates.length > 0 && !candidateToDelete ? confirmBulkDelete : confirmDeleteCandidate}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Delete Candidate
+                Remove {selectedCandidates.length > 0 && !candidateToDelete ? `${selectedCandidates.length} Candidate${selectedCandidates.length > 1 ? 's' : ''}` : 'Candidate'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
