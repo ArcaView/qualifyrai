@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -43,7 +42,6 @@ import {
   Trash2,
   Calendar,
   AlertTriangle,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -57,7 +55,6 @@ const OpenRoles = () => {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<string | null>(null);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     department: '',
@@ -115,38 +112,6 @@ const OpenRoles = () => {
       setDeleteDialogOpen(false);
       setRoleToDelete(null);
     }
-  };
-
-  const handleBulkDelete = () => {
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmBulkDelete = () => {
-    selectedRoles.forEach((roleId) => {
-      deleteRoleFromContext(roleId);
-    });
-    setSelectedRoles([]);
-    setDeleteDialogOpen(false);
-  };
-
-  const toggleRoleSelection = (roleId: string) => {
-    setSelectedRoles((prev) =>
-      prev.includes(roleId)
-        ? prev.filter((id) => id !== roleId)
-        : [...prev, roleId]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedRoles.length === roles.length) {
-      setSelectedRoles([]);
-    } else {
-      setSelectedRoles(roles.map((r) => r.id));
-    }
-  };
-
-  const clearSelection = () => {
-    setSelectedRoles([]);
   };
 
   const resetForm = () => {
@@ -315,56 +280,6 @@ const OpenRoles = () => {
           </Card>
         </div>
 
-        {/* Bulk Actions Toolbar */}
-        {selectedRoles.length > 0 && (
-          <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearSelection}
-                    className="h-8 px-2"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                  <span className="text-sm font-medium">
-                    {selectedRoles.length} role{selectedRoles.length > 1 ? 's' : ''} selected
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleBulkDelete}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Selected
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Select All Checkbox */}
-        {roles.length > 0 && (
-          <div className="flex items-center gap-2 px-1">
-            <Checkbox
-              id="select-all"
-              checked={selectedRoles.length === roles.length}
-              onCheckedChange={toggleSelectAll}
-            />
-            <label
-              htmlFor="select-all"
-              className="text-sm font-medium cursor-pointer"
-            >
-              Select all ({roles.length})
-            </label>
-          </div>
-        )}
-
         {/* Roles List */}
         <div className="space-y-4">
           {roles.length === 0 ? (
@@ -385,22 +300,12 @@ const OpenRoles = () => {
             roles.map((role) => (
               <Card
                 key={role.id}
-                className={`transition-colors ${
-                  selectedRoles.includes(role.id) ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
-                }`}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => navigate(`/dashboard/roles/${role.id}`)}
               >
                 <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <Checkbox
-                      checked={selectedRoles.includes(role.id)}
-                      onCheckedChange={() => toggleRoleSelection(role.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="mt-1"
-                    />
-                    <div
-                      className="flex-1 cursor-pointer"
-                      onClick={() => navigate(`/dashboard/roles/${role.id}`)}
-                    >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <CardTitle className="text-xl">{role.title}</CardTitle>
                         <Badge variant={role.status === 'active' ? 'default' : 'secondary'}>
@@ -428,7 +333,7 @@ const OpenRoles = () => {
                         )}
                       </CardDescription>
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -452,10 +357,7 @@ const OpenRoles = () => {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/dashboard/roles/${role.id}`)}
-                >
+                <CardContent>
                   <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                     {role.description}
                   </p>
@@ -483,57 +385,29 @@ const OpenRoles = () => {
                 <div className="p-2 bg-destructive/10 rounded-full">
                   <AlertTriangle className="w-5 h-5 text-destructive" />
                 </div>
-                <AlertDialogTitle>
-                  {selectedRoles.length > 0 && !roleToDelete
-                    ? `Delete ${selectedRoles.length} Role${selectedRoles.length > 1 ? 's' : ''}`
-                    : 'Delete Role'}
-                </AlertDialogTitle>
+                <AlertDialogTitle>Delete Role</AlertDialogTitle>
               </div>
               <AlertDialogDescription className="text-base">
-                {selectedRoles.length > 0 && !roleToDelete ? (
-                  <>
-                    Are you sure you want to delete {selectedRoles.length} role{selectedRoles.length > 1 ? 's' : ''}? This action cannot be undone.
-                    {(() => {
-                      const totalCandidates = selectedRoles.reduce((sum, roleId) => {
-                        const role = roles.find(r => r.id === roleId);
-                        return sum + (role?.candidates || 0);
-                      }, 0);
-                      return totalCandidates > 0 && (
-                        <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                          <p className="text-sm text-yellow-800 dark:text-yellow-400 font-medium">
-                            Warning: These roles have a combined total of {totalCandidates} candidate(s) attached.
-                            Deleting these roles will not delete the candidate data, but they will no longer be associated with these roles.
-                          </p>
-                        </div>
-                      );
-                    })()}
-                  </>
-                ) : (
-                  <>
-                    Are you sure you want to delete this role? This action cannot be undone.
-                    {roleToDelete && roles.find(r => r.id === roleToDelete)?.candidates && roles.find(r => r.id === roleToDelete)!.candidates > 0 && (
-                      <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                        <p className="text-sm text-yellow-800 dark:text-yellow-400 font-medium">
-                          Warning: This role has {roles.find(r => r.id === roleToDelete)!.candidates} candidate(s) attached.
-                          Deleting this role will not delete the candidate data, but they will no longer be associated with this role.
-                        </p>
-                      </div>
-                    )}
-                  </>
+                Are you sure you want to delete this role? This action cannot be undone.
+                {roleToDelete && roles.find(r => r.id === roleToDelete)?.candidates && roles.find(r => r.id === roleToDelete)!.candidates > 0 && (
+                  <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-400 font-medium">
+                      Warning: This role has {roles.find(r => r.id === roleToDelete)!.candidates} candidate(s) attached.
+                      Deleting this role will not delete the candidate data, but they will no longer be associated with this role.
+                    </p>
+                  </div>
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => {
-                setRoleToDelete(null);
-              }}>
+              <AlertDialogCancel onClick={() => setRoleToDelete(null)}>
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={selectedRoles.length > 0 && !roleToDelete ? confirmBulkDelete : confirmDeleteRole}
+                onClick={confirmDeleteRole}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Delete {selectedRoles.length > 0 && !roleToDelete ? `${selectedRoles.length} Role${selectedRoles.length > 1 ? 's' : ''}` : 'Role'}
+                Delete Role
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
