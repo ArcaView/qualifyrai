@@ -42,6 +42,14 @@ const navItems = [
     description: "Parse multiple CVs",
   },
   {
+    title: "Cover Letter Review",
+    href: "/dashboard/cover-letter",
+    icon: FileText,
+    description: "Review and analyze cover letters",
+    disabled: true,
+    comingSoon: true,
+  },
+  {
     title: "Open Roles",
     href: "/dashboard/roles",
     icon: Briefcase,
@@ -52,12 +60,6 @@ const navItems = [
     href: "/dashboard/candidates",
     icon: Users,
     description: "View all candidates",
-  },
-  {
-    title: "Cover Letter Review",
-    href: "/dashboard/cover-letter",
-    icon: FileText,
-    description: "Review and analyze cover letters",
   },
   {
     title: "Analytics",
@@ -158,6 +160,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
+                const isDisabled = (item as any).disabled;
+                const isComingSoon = (item as any).comingSoon;
 
                 // Add data-tour attributes to specific nav items
                 const getTourAttr = () => {
@@ -167,6 +171,31 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   if (item.href === "/dashboard/developer") return "nav-developer";
                   return undefined;
                 };
+
+                // Render disabled items differently
+                if (isDisabled) {
+                  return (
+                    <div
+                      key={item.href}
+                      data-tour={getTourAttr()}
+                      title={isComingSoon ? "Coming Soon" : undefined}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                        "text-muted-foreground cursor-not-allowed opacity-50"
+                      )}
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex-1 flex items-center justify-between">
+                        <div>{item.title}</div>
+                        {isComingSoon && (
+                          <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-medium">
+                            Soon
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <Link
@@ -213,6 +242,30 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
+                const isDisabled = (item as any).disabled;
+                const isComingSoon = (item as any).comingSoon;
+
+                // Render disabled items differently
+                if (isDisabled) {
+                  return (
+                    <div
+                      key={item.href}
+                      title={isComingSoon ? "Coming Soon" : undefined}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors",
+                        "text-muted-foreground cursor-not-allowed opacity-50"
+                      )}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {item.title}
+                      {isComingSoon && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded-full font-medium ml-1">
+                          Soon
+                        </span>
+                      )}
+                    </div>
+                  );
+                }
 
                 return (
                   <Link
