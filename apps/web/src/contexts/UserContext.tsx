@@ -45,10 +45,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Check for active session on mount
     const initializeAuth = async () => {
+      console.log('[UserContext] Starting auth initialization...');
       try {
+        console.log('[UserContext] Getting session...');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('[UserContext] Session retrieved:', session ? 'Found' : 'None');
 
         if (session?.user) {
+          console.log('[UserContext] User found, loading subscription...');
           setSupabaseUser(session.user);
           const metadata = session.user.user_metadata;
 
@@ -109,10 +113,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             subscriptionTier,
             planLimits
           });
+        } else {
+          console.log('[UserContext] No session found, user not logged in');
         }
       } catch (error) {
+        console.error('[UserContext] Error during auth initialization:', error);
         // TODO: Replace with proper error logging service (e.g., Sentry)
       } finally {
+        console.log('[UserContext] Setting isLoading to false');
         setIsLoading(false);
       }
     };
