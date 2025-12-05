@@ -589,7 +589,9 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      console.log('[updateCandidateScore] Updating with:', { score, scoreBreakdown, fit });
+
+      const { error, data } = await supabase
         .from('candidates')
         .update({
           score,
@@ -597,9 +599,15 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           fit
         })
         .eq('id', candidateId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
 
-      if (error) throw error;
+      console.log('[updateCandidateScore] Supabase response:', { error, data });
+
+      if (error) {
+        console.error('[updateCandidateScore] Supabase error details:', error);
+        throw error;
+      }
 
       setRoles(prev => prev.map(role => {
         if (role.id === roleId) {
