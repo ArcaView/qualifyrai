@@ -103,6 +103,7 @@ interface RolesContextType {
   removeCandidateFromRole: (roleId: string, candidateId: string) => Promise<void>;
   updateCandidateStatus: (roleId: string, candidateId: string, status: Candidate['status'], note?: string) => Promise<void>;
   updateCandidateSummary: (roleId: string, candidateId: string, summary: string) => Promise<void>;
+  updateCandidateScore: (roleId: string, candidateId: string, score: number, scoreBreakdown: any, fit: string) => Promise<void>;
   addInterview: (roleId: string, candidateId: string, interview: Omit<Interview, 'id'>) => Promise<void>;
   updateInterview: (roleId: string, candidateId: string, interviewId: string, updates: Partial<Interview>) => Promise<void>;
   deleteInterview: (roleId: string, candidateId: string, interviewId: string) => Promise<void>;
@@ -583,6 +584,50 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  const updateCandidateScore = async (roleId: string, candidateId: string, score: number, scoreBreakdown: any, fit: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('candidates')
+        .update({
+          score,
+          score_breakdown: scoreBreakdown,
+          fit
+        })
+        .eq('id', candidateId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setRoles(prev => prev.map(role => {
+        if (role.id === roleId) {
+          const updatedCandidatesList = role.candidatesList.map(candidate =>
+            candidate.id === candidateId ? { ...candidate, score, score_breakdown: scoreBreakdown, fit } : candidate
+          );
+          return {
+            ...role,
+            candidatesList: updatedCandidatesList,
+          };
+        }
+        return role;
+      }));
+
+      toast({
+        title: 'Score updated',
+        description: 'Candidate score has been updated successfully'
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Error updating score',
+        description: err.message,
+        variant: 'destructive'
+      });
+      throw err;
+    }
+  };
+
   const addInterview = async (roleId: string, candidateId: string, interview: Omit<Interview, 'id'>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -834,6 +879,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       removeCandidateFromRole,
       updateCandidateStatus,
       updateCandidateSummary,
+      updateCandidateScore,
       addInterview,
       updateInterview,
       deleteInterview,

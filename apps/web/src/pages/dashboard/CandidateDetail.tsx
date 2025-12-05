@@ -48,6 +48,8 @@ import {
   Save,
   X,
   ChevronDown,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -55,11 +57,12 @@ import { useRoles, type Interview } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ScoreBreakdownCard } from "@/components/ScoreBreakdownCard";
+import { parseScoreAPI } from "@/lib/api/parsescore-client";
 
 const CandidateDetail = () => {
   const { candidateId, roleId } = useParams();
   const navigate = useNavigate();
-  const { roles, updateCandidateStatus, updateCandidateSummary, addInterview, updateInterview, deleteInterview, removeCandidateFromRole } = useRoles();
+  const { roles, updateCandidateStatus, updateCandidateSummary, updateCandidateScore, addInterview, updateInterview, deleteInterview, removeCandidateFromRole } = useRoles();
   const { toast } = useToast();
 
   // Find the role and candidate
@@ -74,6 +77,7 @@ const CandidateDetail = () => {
   const [deleteInterviewId, setDeleteInterviewId] = useState<string | null>(null);
   const [deleteCandidateDialogOpen, setDeleteCandidateDialogOpen] = useState(false);
   const [cvOpen, setCvOpen] = useState(false);
+  const [scoring, setScoring] = useState(false);
   const [interviewForm, setInterviewForm] = useState({
     date: '',
     interviewer: '',
@@ -187,6 +191,60 @@ const CandidateDetail = () => {
     }
   };
 
+  const handleAIScore = async () => {
+    if (!roleId || !candidateId || !role || !candidate) return;
+
+    setScoring(true);
+    try {
+      // Extract required skills from candidate
+      const requiredSkills = candidate.skills || [];
+
+      // Call the score API
+      const scoreResult = await parseScoreAPI.scoreCandidate({
+        candidate: candidate.cv_parsed_data || {
+          contact: {
+            full_name: candidate.name,
+            emails: [candidate.email],
+            phones: [candidate.phone]
+          },
+          skills: candidate.skills,
+          work_experience: candidate.experience,
+          education: candidate.education
+        },
+        job: {
+          title: role.title,
+          description: role.description,
+          required_skills: requiredSkills,
+          preferred_skills: [],
+          min_years_experience: 0
+        },
+        mode: 'llm'
+      });
+
+      // Determine fit based on score
+      const score = scoreResult.result.overall_score;
+      let fit: 'excellent' | 'good' | 'fair' = 'fair';
+      if (score >= 85) fit = 'excellent';
+      else if (score >= 70) fit = 'good';
+
+      // Update candidate with score
+      await updateCandidateScore(roleId, candidateId, score, scoreResult.result.breakdown, fit);
+
+      toast({
+        title: 'AI Score Complete',
+        description: `Candidate scored ${score}% with ${fit} fit`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Scoring Failed',
+        description: error.message || 'Failed to score candidate',
+        variant: 'destructive',
+      });
+    } finally {
+      setScoring(false);
+    }
+  };
+
   const getStatusColor = (status: typeof candidate.status) => {
     switch (status) {
       case 'new': return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
@@ -242,15 +300,35 @@ const CandidateDetail = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to All Candidates
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDeleteCandidateDialogOpen(true)}
-            className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAIScore}
+              disabled={scoring}
+            >
+              {scoring ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Scoring...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI Score
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteCandidateDialogOpen(true)}
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+          </div>
         </div>
 
         {/* Candidate Info Card */}
