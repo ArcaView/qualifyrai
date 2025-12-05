@@ -1,70 +1,80 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, TrendingUp, Activity, Users, FileText, Clock, Target, Code } from "lucide-react";
+import { BarChart3, TrendingUp, Activity, Users, FileText, Clock, Target } from "lucide-react";
+import { useRoles } from "@/contexts/RolesContext";
+import { useMemo } from "react";
 
 const Analytics = () => {
-  // Recruitment metrics for main users
+  const { roles } = useRoles();
+
+  // Calculate real statistics from actual data
+  const stats = useMemo(() => {
+    // Flatten all candidates from all roles
+    const allCandidates = roles.flatMap(role => role.candidatesList || []);
+
+    // Total candidates
+    const totalCandidates = allCandidates.length;
+
+    // Average match score (only for candidates with scores)
+    const candidatesWithScores = allCandidates.filter(c => c.score !== undefined);
+    const avgScore = candidatesWithScores.length > 0
+      ? Math.round(candidatesWithScores.reduce((sum, c) => sum + (c.score || 0), 0) / candidatesWithScores.length)
+      : 0;
+
+    // CVs processed (same as total candidates for now)
+    const cvsProcessed = totalCandidates;
+
+    // Calculate time-to-hire (candidates who went from reviewing to hired)
+    const hiredCandidates = allCandidates.filter(c => c.status === 'hired');
+    let avgTimeToHire = 0;
+    if (hiredCandidates.length > 0) {
+      const times = hiredCandidates.map(c => {
+        const appliedDate = new Date(c.appliedDate);
+        const hiredDate = c.statusHistory?.find(h => h.status === 'hired')?.changedAt;
+        if (hiredDate) {
+          const hired = new Date(hiredDate);
+          return Math.floor((hired.getTime() - appliedDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+        return 0;
+      }).filter(t => t > 0);
+
+      avgTimeToHire = times.length > 0
+        ? Math.round(times.reduce((sum, t) => sum + t, 0) / times.length)
+        : 0;
+    }
+
+    return {
+      totalCandidates,
+      avgScore,
+      cvsProcessed,
+      avgTimeToHire
+    };
+  }, [roles]);
+
   const recruitmentStats = [
     {
       title: "Total Candidates",
-      value: "1,247",
-      change: "+18.2%",
+      value: stats.totalCandidates.toString(),
       icon: Users,
-      description: "Last 30 days",
+      description: "All time",
     },
     {
       title: "Avg. Match Score",
-      value: "76%",
-      change: "+3.5%",
+      value: stats.avgScore > 0 ? `${stats.avgScore}%` : "N/A",
       icon: Target,
-      description: "Last 30 days",
+      description: "Across all candidates",
     },
     {
       title: "CVs Processed",
-      value: "2,456",
-      change: "+12.5%",
+      value: stats.cvsProcessed.toString(),
       icon: FileText,
-      description: "Last 30 days",
+      description: "All time",
     },
     {
       title: "Avg. Time-to-Hire",
-      value: "18 days",
-      change: "-4 days",
+      value: stats.avgTimeToHire > 0 ? `${stats.avgTimeToHire} days` : "N/A",
       icon: Clock,
-      description: "Last 30 days",
-    },
-  ];
-
-  // API metrics for developers
-  const apiStats = [
-    {
-      title: "Total API Calls",
-      value: "12,456",
-      change: "+12.5%",
-      icon: Activity,
-      description: "Last 30 days",
-    },
-    {
-      title: "Success Rate",
-      value: "99.2%",
-      change: "+0.3%",
-      icon: TrendingUp,
-      description: "Last 30 days",
-    },
-    {
-      title: "Avg. Response Time",
-      value: "245ms",
-      change: "-15ms",
-      icon: BarChart3,
-      description: "Last 30 days",
-    },
-    {
-      title: "Active API Keys",
-      value: "8",
-      change: "+2",
-      icon: Code,
-      description: "Last 30 days",
+      description: "For hired candidates",
     },
   ];
 
@@ -74,39 +84,32 @@ const Analytics = () => {
         <div>
           <h1 className="text-3xl font-bold mb-2">Analytics</h1>
           <p className="text-muted-foreground">
-            Monitor your recruitment metrics and API performance
+            Monitor your recruitment metrics and performance
           </p>
         </div>
 
-        <Tabs defaultValue="recruitment" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="recruitment">Recruitment Metrics</TabsTrigger>
-          </TabsList>
-
-          {/* Recruitment View */}
-          <TabsContent value="recruitment" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-tour="analytics-metrics">
-              {recruitmentStats.map((stat, index) => {
-                const Icon = stat.icon;
-                const isPositive = stat.change.startsWith('+') || stat.change.startsWith('-') && stat.title.includes('Time');
-                return (
-                  <Card key={index}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
-                        {stat.title}
-                      </CardTitle>
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{stat.value}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        <span className={isPositive ? "text-green-600" : "text-muted-foreground"}>{stat.change}</span> from {stat.description}
-                      </p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-tour="analytics-metrics">
+            {recruitmentStats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <Card key={index}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      {stat.title}
+                    </CardTitle>
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {stat.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
@@ -177,8 +180,7 @@ const Analytics = () => {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
     </DashboardLayout>
   );
