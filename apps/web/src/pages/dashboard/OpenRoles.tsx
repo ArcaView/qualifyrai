@@ -65,11 +65,24 @@ const OpenRoles = () => {
   });
 
   const handleCreateRole = async () => {
+    console.log('[handleCreateRole] Starting role creation...');
+    console.log('[handleCreateRole] Form data:', formData);
+    console.log('[handleCreateRole] Button should be:', {
+      disabled: !formData.title || !formData.department || !formData.location || !formData.description,
+      title: formData.title,
+      department: formData.department,
+      location: formData.location,
+      description: formData.description
+    });
+
     try {
-      await addRole(formData);
+      console.log('[handleCreateRole] Calling addRole...');
+      const roleId = await addRole(formData);
+      console.log('[handleCreateRole] Role created successfully with ID:', roleId);
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
+      console.error('[handleCreateRole] Error caught:', error);
       // Error is already handled by addRole with toast notification
       // TODO: Replace with proper error logging service (e.g., Sentry)
     }

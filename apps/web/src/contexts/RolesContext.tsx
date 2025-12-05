@@ -804,8 +804,12 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addRole = async (roleData: Omit<Role, 'id' | 'candidatesList' | 'candidates' | 'createdAt' | 'status'>) => {
     try {
+      console.log('[addRole] Starting with data:', roleData);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      console.log('[addRole] User authenticated:', user.id);
 
       // Parse salary if provided
       let salary_min, salary_max;
@@ -817,24 +821,32 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
+      console.log('[addRole] Parsed salary:', { salary_min, salary_max });
+
+      const insertData = {
+        user_id: user.id,
+        title: roleData.title,
+        department: roleData.department,
+        location: roleData.location,
+        employment_type: roleData.type,
+        salary_min,
+        salary_max,
+        description: roleData.description,
+        is_active: true
+      };
+
+      console.log('[addRole] Inserting into database:', insertData);
+
       const { data, error } = await supabase
         .from('roles')
-        .insert({
-          user_id: user.id,
-          title: roleData.title,
-          department: roleData.department,
-          location: roleData.location,
-          employment_type: roleData.type,
-          salary_min,
-          salary_max,
-          description: roleData.description,
-          is_active: true
-        })
+        .insert(insertData)
         .select()
         .single();
 
+      console.log('[addRole] Database response:', { data, error });
+
       if (error) {
-        console.error('Role creation error:', error);
+        console.error('[addRole] Database error:', error);
         throw error;
       }
 
