@@ -1,6 +1,8 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -17,12 +19,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Briefcase,
   Mail,
   Phone,
   Star,
   Users as UsersIcon,
   FileText,
+  Trash2,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -31,7 +44,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const AllCandidates = () => {
   const navigate = useNavigate();
-  const { roles, updateCandidateStatus } = useRoles();
+  const { roles, updateCandidateStatus, removeCandidateFromRole } = useRoles();
   const { toast } = useToast();
 
   // Flatten all candidates from all roles
@@ -50,6 +63,9 @@ const AllCandidates = () => {
 
   const [viewCandidate, setViewCandidate] = useState<(Candidate & { roleId: string; roleTitle: string }) | null>(null);
   const [dialogPage, setDialogPage] = useState(0);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const handleViewCandidate = (candidate: Candidate & { roleId: string; roleTitle: string }) => {
     navigate(`/dashboard/candidates/${candidate.id}/${candidate.roleId}`);
@@ -66,6 +82,54 @@ const AllCandidates = () => {
       title: "Status Updated",
       description: `${candidateName}'s status changed to ${getStatusLabel(status)}`,
     });
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    if (selectionMode) {
+      setSelectedCandidates([]);
+    }
+  };
+
+  const toggleCandidateSelection = (candidateKey: string) => {
+    setSelectedCandidates(prev =>
+      prev.includes(candidateKey)
+        ? prev.filter(id => id !== candidateKey)
+        : [...prev, candidateKey]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCandidates.length === sortedCandidates.length) {
+      setSelectedCandidates([]);
+    } else {
+      setSelectedCandidates(sortedCandidates.map(c => `${c.roleId}-${c.id}`));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    try {
+      // Delete each selected candidate
+      for (const candidateKey of selectedCandidates) {
+        const [roleId, candidateId] = candidateKey.split('-');
+        await removeCandidateFromRole(roleId, candidateId);
+      }
+
+      toast({
+        title: "Candidates Deleted",
+        description: `${selectedCandidates.length} candidate${selectedCandidates.length > 1 ? 's' : ''} deleted successfully`,
+      });
+
+      setSelectedCandidates([]);
+      setSelectionMode(false);
+      setDeleteDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Delete Failed",
+        description: error.message || "Failed to delete candidates",
+        variant: "destructive",
+      });
+    }
   };
 
   const getFitColor = (fit?: string) => {
@@ -109,11 +173,40 @@ const AllCandidates = () => {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold mb-2">All Candidates</h1>
-          <p className="text-muted-foreground">
-            Complete list of candidates across all roles ({allCandidates.length} total)
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">All Candidates</h1>
+            <p className="text-muted-foreground">
+              Complete list of candidates across all roles ({allCandidates.length} total)
+            </p>
+          </div>
+          {allCandidates.length > 0 && (
+            <div className="flex items-center gap-2">
+              {!selectionMode ? (
+                <Button variant="outline" size="sm" onClick={toggleSelectionMode}>
+                  Select Multiple
+                </Button>
+              ) : (
+                <>
+                  <span className="text-sm text-muted-foreground mr-2">
+                    {selectedCandidates.length} selected
+                  </span>
+                  <Button variant="outline" size="sm" onClick={toggleSelectAll}>
+                    {selectedCandidates.length === sortedCandidates.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  {selectedCandidates.length > 0 && (
+                    <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Selected
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={toggleSelectionMode}>
+                    Cancel
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Candidates List */}
@@ -133,6 +226,16 @@ const AllCandidates = () => {
               <Card key={`${candidate.roleId}-${candidate.id}`}>
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
+                    {/* Checkbox in selection mode */}
+                    {selectionMode && (
+                      <div className="flex-shrink-0 mt-1">
+                        <Checkbox
+                          checked={selectedCandidates.includes(`${candidate.roleId}-${candidate.id}`)}
+                          onCheckedChange={() => toggleCandidateSelection(`${candidate.roleId}-${candidate.id}`)}
+                        />
+                      </div>
+                    )}
+
                     {/* Rank Badge */}
                     {index === 0 && candidate.score && candidate.score >= 85 ? (
                       <div className="flex-shrink-0">
@@ -382,6 +485,25 @@ const AllCandidates = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Candidates</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {selectedCandidates.length} candidate{selectedCandidates.length > 1 ? 's' : ''}?
+                This action cannot be undone and will remove all associated data including interviews, notes, and status history.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteSelected} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete {selectedCandidates.length} Candidate{selectedCandidates.length > 1 ? 's' : ''}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
