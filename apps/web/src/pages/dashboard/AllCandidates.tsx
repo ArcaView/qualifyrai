@@ -103,7 +103,7 @@ const AllCandidates = () => {
     if (selectedCandidates.length === sortedCandidates.length) {
       setSelectedCandidates([]);
     } else {
-      setSelectedCandidates(sortedCandidates.map(c => `${c.roleId}-${c.id}`));
+      setSelectedCandidates(sortedCandidates.map(c => `${c.roleId}|||${c.id}`));
     }
   };
 
@@ -111,7 +111,7 @@ const AllCandidates = () => {
     try {
       // Delete each selected candidate
       for (const candidateKey of selectedCandidates) {
-        const [roleId, candidateId] = candidateKey.split('-');
+        const [roleId, candidateId] = candidateKey.split('|||');
         await removeCandidateFromRole(roleId, candidateId);
       }
 
@@ -223,15 +223,15 @@ const AllCandidates = () => {
         ) : (
           <div className="space-y-3" data-tour="candidates-list">
             {sortedCandidates.map((candidate, index) => (
-              <Card key={`${candidate.roleId}-${candidate.id}`}>
+              <Card key={`${candidate.roleId}|||${candidate.id}`}>
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
                     {/* Checkbox in selection mode */}
                     {selectionMode && (
                       <div className="flex-shrink-0 mt-1">
                         <Checkbox
-                          checked={selectedCandidates.includes(`${candidate.roleId}-${candidate.id}`)}
-                          onCheckedChange={() => toggleCandidateSelection(`${candidate.roleId}-${candidate.id}`)}
+                          checked={selectedCandidates.includes(`${candidate.roleId}|||${candidate.id}`)}
+                          onCheckedChange={() => toggleCandidateSelection(`${candidate.roleId}|||${candidate.id}`)}
                         />
                       </div>
                     )}
