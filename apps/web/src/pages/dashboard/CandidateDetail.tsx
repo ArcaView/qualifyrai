@@ -199,6 +199,10 @@ const CandidateDetail = () => {
       // Extract required skills from candidate
       const requiredSkills = candidate.skills || [];
 
+      console.log('[AI Score] Starting score request...');
+      console.log('[AI Score] Role:', role.title);
+      console.log('[AI Score] Candidate:', candidate.name);
+
       // Call the score API
       const scoreResult = await parseScoreAPI.scoreCandidate({
         candidate: candidate.cv_parsed_data || {
@@ -221,26 +225,37 @@ const CandidateDetail = () => {
         mode: 'llm'
       });
 
+      console.log('[AI Score] API Response:', scoreResult);
+
       // Determine fit based on score
       const score = scoreResult.result.overall_score;
+      console.log('[AI Score] Score:', score);
+
       let fit: 'excellent' | 'good' | 'fair' = 'fair';
       if (score >= 85) fit = 'excellent';
       else if (score >= 70) fit = 'good';
 
+      console.log('[AI Score] Fit:', fit);
+      console.log('[AI Score] Breakdown:', scoreResult.result.breakdown);
+
       // Update candidate with score
+      console.log('[AI Score] Updating candidate score...');
       await updateCandidateScore(roleId, candidateId, score, scoreResult.result.breakdown, fit);
+      console.log('[AI Score] Score updated successfully');
 
       toast({
         title: 'AI Score Complete',
         description: `Candidate scored ${score}% with ${fit} fit`,
       });
     } catch (error: any) {
+      console.error('[AI Score] Error:', error);
       toast({
         title: 'Scoring Failed',
         description: error.message || 'Failed to score candidate',
         variant: 'destructive',
       });
     } finally {
+      console.log('[AI Score] Finalizing, setting scoring to false');
       setScoring(false);
     }
   };
