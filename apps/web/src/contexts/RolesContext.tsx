@@ -853,54 +853,40 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       console.log('[addRole] Inserting into database:', insertData);
 
-      // Test if supabase client works at all
-      console.log('[addRole] Testing supabase client...');
-      console.log('[addRole] Supabase object:', typeof supabase);
-      console.log('[addRole] Supabase.from:', typeof supabase.from);
+      // Use RPC function instead of direct insert to avoid RLS hanging issue
+      console.log('[addRole] Calling create_role RPC function...');
 
-      // Try simpler insert without chaining to avoid hanging
-      console.log('[addRole] About to call insert...');
-
-      const startTime = Date.now();
-      const insertPromise = supabase
-        .from('roles')
-        .insert(insertData);
-
-      console.log('[addRole] Insert promise created, now awaiting...');
-      const insertResponse = await insertPromise;
-      const endTime = Date.now();
-
-      console.log(`[addRole] Insert completed in ${endTime - startTime}ms`);
-      console.log('[addRole] Insert response:', insertResponse);
-
-      if (insertResponse.error) {
-        console.error('[addRole] Insert error:', insertResponse.error);
-        throw insertResponse.error;
-      }
-
-      // Now fetch the created role
-      console.log('[addRole] Fetching created role...');
       const { data, error } = await supabase
-        .from('roles')
-        .select()
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .rpc('create_role', {
+          p_title: roleData.title,
+          p_department: roleData.department,
+          p_location: roleData.location,
+          p_employment_type: roleData.type,
+          p_salary_min: salary_min,
+          p_salary_max: salary_max,
+          p_description: roleData.description
+        });
 
-      console.log('[addRole] Fetch response:', { data, error });
+      console.log('[addRole] RPC response:', { data, error });
 
       if (error) {
         console.error('[addRole] Database error:', error);
         throw error;
       }
 
+      // RPC functions return arrays, so get the first element
+      const createdRole = Array.isArray(data) ? data[0] : data;
+
+      if (!createdRole) {
+        throw new Error('No role returned from database');
+      }
+
       const newRole: Role = {
         ...roleData,
-        id: data.id,
+        id: createdRole.id,
         candidatesList: [],
         candidates: 0,
-        createdAt: data.created_at.split('T')[0],
+        createdAt: createdRole.created_at.split('T')[0],
         status: 'active',
       };
 
@@ -919,7 +905,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         description: 'Role has been created successfully'
       });
 
-      return data.id;
+      return createdRole.id;
     } catch (err: any) {
       console.error('[addRole] CAUGHT ERROR:', err);
       console.error('[addRole] Error type:', typeof err);
