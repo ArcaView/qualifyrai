@@ -64,10 +64,22 @@ const OpenRoles = () => {
     description: '',
   });
 
+  const [salaryData, setSalaryData] = useState({
+    currency: '$',
+    min: '',
+    max: '',
+  });
+
   const handleCreateRole = async () => {
-    console.log('[handleCreateRole] Called with formData:', formData);
+    // Combine salary data into formatted string
+    const salaryString = salaryData.min && salaryData.max
+      ? `${salaryData.currency}${salaryData.min} - ${salaryData.currency}${salaryData.max}`
+      : '';
+
+    const roleData = { ...formData, salary: salaryString };
+    console.log('[handleCreateRole] Called with formData:', roleData);
     try {
-      await addRole(formData);
+      await addRole(roleData);
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
@@ -86,13 +98,35 @@ const OpenRoles = () => {
       salary: role.salary,
       description: role.description,
     });
+
+    // Parse salary string into components
+    if (role.salary) {
+      const currencyMatch = role.salary.match(/^([$£€¥])/);
+      const numbersMatch = role.salary.match(/[\d,]+/g);
+
+      if (numbersMatch && numbersMatch.length >= 2) {
+        setSalaryData({
+          currency: currencyMatch ? currencyMatch[1] : '$',
+          min: numbersMatch[0].replace(/,/g, ''),
+          max: numbersMatch[1].replace(/,/g, ''),
+        });
+      }
+    }
+
     setDialogOpen(true);
   };
 
   const handleUpdateRole = async () => {
     if (!editingRole) return;
+
+    // Combine salary data into formatted string
+    const salaryString = salaryData.min && salaryData.max
+      ? `${salaryData.currency}${salaryData.min} - ${salaryData.currency}${salaryData.max}`
+      : '';
+
+    const roleData = { ...formData, salary: salaryString };
     try {
-      await updateRole(editingRole.id, formData);
+      await updateRole(editingRole.id, roleData);
       setDialogOpen(false);
       setEditingRole(null);
       resetForm();
@@ -123,6 +157,11 @@ const OpenRoles = () => {
       type: 'full-time',
       salary: '',
       description: '',
+    });
+    setSalaryData({
+      currency: '$',
+      min: '',
+      max: '',
     });
     setEditingRole(null);
   };
@@ -219,12 +258,41 @@ const OpenRoles = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="salary">Salary Range</Label>
-                  <Input
-                    id="salary"
-                    placeholder="e.g., $120k - $160k"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <Select
+                      value={salaryData.currency}
+                      onValueChange={(value) => setSalaryData({ ...salaryData, currency: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="$">$ USD</SelectItem>
+                        <SelectItem value="£">£ GBP</SelectItem>
+                        <SelectItem value="€">€ EUR</SelectItem>
+                        <SelectItem value="¥">¥ JPY</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Min (e.g., 120000)"
+                      value={salaryData.min}
+                      onChange={(e) => setSalaryData({ ...salaryData, min: e.target.value.replace(/[^0-9]/g, '') })}
+                      type="text"
+                      inputMode="numeric"
+                    />
+                    <Input
+                      placeholder="Max (e.g., 160000)"
+                      value={salaryData.max}
+                      onChange={(e) => setSalaryData({ ...salaryData, max: e.target.value.replace(/[^0-9]/g, '') })}
+                      type="text"
+                      inputMode="numeric"
+                    />
+                  </div>
+                  {salaryData.min && salaryData.max && (
+                    <p className="text-xs text-muted-foreground">
+                      Preview: {salaryData.currency}{parseInt(salaryData.min).toLocaleString()} - {salaryData.currency}{parseInt(salaryData.max).toLocaleString()}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
