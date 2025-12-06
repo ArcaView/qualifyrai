@@ -256,7 +256,17 @@ const OpenRoles = () => {
                   Cancel
                 </Button>
                 <Button
-                  onClick={editingRole ? handleUpdateRole : handleCreateRole}
+                  onClick={() => {
+                    console.log('[BUTTON CLICK] Button clicked!');
+                    console.log('[BUTTON CLICK] Editing role?', editingRole);
+                    console.log('[BUTTON CLICK] Form data:', formData);
+                    console.log('[BUTTON CLICK] Is disabled?', !formData.title || !formData.department || !formData.location || !formData.description);
+                    if (editingRole) {
+                      handleUpdateRole();
+                    } else {
+                      handleCreateRole();
+                    }
+                  }}
                   disabled={!formData.title || !formData.department || !formData.location || !formData.description}
                 >
                   {editingRole ? 'Update Role' : 'Create Role'}
