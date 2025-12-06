@@ -186,13 +186,16 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Fetch roles from database
   const refreshRoles = async () => {
     try {
+      console.log('[refreshRoles] Starting...');
       setIsLoading(true);
       setError(null);
 
       // Use cached user ID if available, otherwise get from session
       let userId = cachedUserId;
+      console.log('[refreshRoles] Cached user ID:', userId);
 
       if (!userId) {
+        console.log('[refreshRoles] No cached ID, getting session...');
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           setRoles([]);
@@ -203,6 +206,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setCachedUserId(userId);
       }
 
+      console.log('[refreshRoles] Fetching roles...');
       // Fetch roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('roles')
@@ -210,13 +214,18 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
+      console.log('[refreshRoles] Roles fetched:', { count: rolesData?.length, hasError: !!rolesError });
+
       if (rolesError) throw rolesError;
 
+      console.log('[refreshRoles] Fetching candidates...');
       // Fetch candidates for all roles
       const { data: candidatesData, error: candidatesError } = await supabase
         .from('candidates')
         .select('*')
         .eq('user_id', userId);
+
+      console.log('[refreshRoles] Candidates fetched:', { count: candidatesData?.length, hasError: !!candidatesError });
 
       if (candidatesError) throw candidatesError;
 
@@ -242,8 +251,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         };
       });
 
+      console.log('[refreshRoles] Setting roles state with', transformedRoles.length, 'roles');
       setRoles(transformedRoles);
+      console.log('[refreshRoles] Complete!');
     } catch (err: any) {
+      console.error('[refreshRoles] Error:', err);
       setError(err.message);
       toast({
         title: 'Error loading roles',
@@ -251,6 +263,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         variant: 'destructive'
       });
     } finally {
+      console.log('[refreshRoles] Finally block - setting isLoading to false');
       setIsLoading(false);
     }
   };
