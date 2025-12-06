@@ -807,7 +807,23 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       console.log('[addRole] Starting with data:', roleData);
 
       console.log('[addRole] About to get session...');
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
+
+      // Add timeout to detect if getSession is hanging
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('getSession timed out after 5 seconds')), 5000);
+      });
+
+      let sessionResult;
+      try {
+        sessionResult = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        console.log('[addRole] Session call completed');
+      } catch (timeoutError) {
+        console.error('[addRole] Session call TIMED OUT:', timeoutError);
+        throw timeoutError;
+      }
+
+      const { data: { session }, error: authError } = sessionResult;
       console.log('[addRole] Session response:', { session, authError });
 
       if (authError) {
