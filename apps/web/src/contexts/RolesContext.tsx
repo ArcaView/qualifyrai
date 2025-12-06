@@ -856,17 +856,30 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Use RPC function instead of direct insert to avoid RLS hanging issue
       console.log('[addRole] Calling create_role RPC function...');
 
-      const { data, error } = await supabase
-        .rpc('create_role', {
-          p_title: roleData.title,
-          p_department: roleData.department,
-          p_location: roleData.location,
-          p_employment_type: roleData.type,
-          p_salary_min: salary_min,
-          p_salary_max: salary_max,
-          p_description: roleData.description
-        });
+      // Add timeout to RPC call
+      const rpcPromise = supabase.rpc('create_role', {
+        p_title: roleData.title,
+        p_department: roleData.department,
+        p_location: roleData.location,
+        p_employment_type: roleData.type,
+        p_salary_min: salary_min,
+        p_salary_max: salary_max,
+        p_description: roleData.description
+      });
 
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('RPC call timed out after 10 seconds')), 10000);
+      });
+
+      let result;
+      try {
+        result = await Promise.race([rpcPromise, timeoutPromise]);
+      } catch (timeoutError: any) {
+        console.error('[addRole] RPC TIMED OUT:', timeoutError);
+        throw new Error('Database operation timed out. Please check your internet connection and try again.');
+      }
+
+      const { data, error } = result as any;
       console.log('[addRole] RPC response:', { data, error });
 
       if (error) {
