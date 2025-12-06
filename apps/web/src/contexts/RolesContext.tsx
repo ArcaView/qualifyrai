@@ -851,47 +851,25 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       console.log('[addRole] Attempting database insert...');
 
-      // Add timeout wrapper to detect hanging inserts
-      const insertPromise = supabase
+      // Just do insert without .select() to avoid hanging issue
+      const { error } = await supabase
         .from('roles')
-        .insert(insertData)
-        .select();
+        .insert(insertData);
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Insert timed out after 10 seconds')), 10000)
-      );
-
-      const { data, error } = await Promise.race([insertPromise, timeoutPromise]) as any;
-
-      console.log('[addRole] Insert result:', { hasData: !!data, hasError: !!error, errorMsg: error?.message, dataType: typeof data, isArray: Array.isArray(data) });
+      console.log('[addRole] Insert result:', { hasError: !!error, errorMsg: error?.message });
 
       if (error) {
         throw error;
       }
 
-      // RPC functions return arrays, so get the first element
-      const createdRole = Array.isArray(data) ? data[0] : data;
+      console.log('[addRole] Insert successful, refreshing roles list...');
 
-      if (!createdRole) {
-        throw new Error('No role returned from database');
-      }
-
-      console.log('[addRole] Creating role object and updating state');
-      const newRole: Role = {
-        ...roleData,
-        id: createdRole.id,
-        candidatesList: [],
-        candidates: 0,
-        createdAt: createdRole.created_at.split('T')[0],
-        status: 'active',
-      };
-
-      setRoles(prev => [...prev, newRole]);
+      // Refresh roles to get the newly created role with its ID
+      await refreshRoles();
 
       console.log('[addRole] Tracking analytics event (non-blocking)');
       // Track analytics event (don't await to avoid blocking)
       trackEvent('role_created', {
-        role_id: createdRole.id,
         title: roleData.title,
         department: roleData.department,
         employment_type: roleData.type
@@ -903,7 +881,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         description: 'Role has been created successfully'
       });
 
-      return createdRole.id;
+      // Return the title since we don't have the ID immediately
+      return roleData.title;
     } catch (err: any) {
       console.error('[addRole] Error occurred:', err);
       toast({
