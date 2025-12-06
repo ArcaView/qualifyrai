@@ -637,7 +637,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           fit
         })
         .eq('id', candidateId)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .select();
 
       if (error) {
