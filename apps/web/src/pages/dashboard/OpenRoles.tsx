@@ -65,26 +65,12 @@ const OpenRoles = () => {
   });
 
   const handleCreateRole = async () => {
-    console.log('[handleCreateRole] Starting role creation...');
-    console.log('[handleCreateRole] Form data:', formData);
-    console.log('[handleCreateRole] Button should be:', {
-      disabled: !formData.title || !formData.department || !formData.location || !formData.description,
-      title: formData.title,
-      department: formData.department,
-      location: formData.location,
-      description: formData.description
-    });
-
     try {
-      console.log('[handleCreateRole] Calling addRole...');
-      const roleId = await addRole(formData);
-      console.log('[handleCreateRole] Role created successfully with ID:', roleId);
+      await addRole(formData);
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      console.error('[handleCreateRole] Error caught:', error);
       // Error is already handled by addRole with toast notification
-      // TODO: Replace with proper error logging service (e.g., Sentry)
     }
   };
 
@@ -256,17 +242,7 @@ const OpenRoles = () => {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    console.log('[BUTTON CLICK] Button clicked!');
-                    console.log('[BUTTON CLICK] Editing role?', editingRole);
-                    console.log('[BUTTON CLICK] Form data:', formData);
-                    console.log('[BUTTON CLICK] Is disabled?', !formData.title || !formData.department || !formData.location || !formData.description);
-                    if (editingRole) {
-                      handleUpdateRole();
-                    } else {
-                      handleCreateRole();
-                    }
-                  }}
+                  onClick={editingRole ? handleUpdateRole : handleCreateRole}
                   disabled={!formData.title || !formData.department || !formData.location || !formData.description}
                 >
                   {editingRole ? 'Update Role' : 'Create Role'}

@@ -594,8 +594,6 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      console.log('[updateCandidateScore] Updating with:', { score, scoreBreakdown, fit });
-
       const { error, data } = await supabase
         .from('candidates')
         .update({
@@ -607,10 +605,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .eq('user_id', user.id)
         .select();
 
-      console.log('[updateCandidateScore] Supabase response:', { error, data });
-
       if (error) {
-        console.error('[updateCandidateScore] Supabase error details:', error);
         throw error;
       }
 
@@ -809,16 +804,10 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addRole = async (roleData: Omit<Role, 'id' | 'candidatesList' | 'candidates' | 'createdAt' | 'status'>) => {
     try {
-      console.log('[addRole] Starting with data:', roleData);
-
-      // Get session WITHOUT refresh - refreshSession hangs
-      console.log('[addRole] Getting current session (not refreshing)...');
+      // Get current session for authentication
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      console.log('[addRole] Session retrieved:', { hasSession: !!session, error: sessionError });
-
       if (sessionError) {
-        console.error('[addRole] Session error:', sessionError);
         throw new Error('Could not get session. Please refresh the page and try again.');
       }
 
@@ -827,8 +816,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       const userId = session.user.id;
-      setCachedUserId(userId); // Update cache
-      console.log('[addRole] Using user ID from session:', userId);
+      setCachedUserId(userId);
 
       // Parse salary if provided
       let salary_min, salary_max;
@@ -839,8 +827,6 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           salary_max = parseFloat(salaryMatch[1].replace(/,/g, ''));
         }
       }
-
-      console.log('[addRole] Parsed salary:', { salary_min, salary_max });
 
       const insertData = {
         user_id: userId,
@@ -854,21 +840,13 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         is_active: true
       };
 
-      console.log('[addRole] Inserting into database:', insertData);
-
-      // Try direct insert without RPC (simpler approach)
-      console.log('[addRole] Attempting direct insert to roles table...');
-
       const { data, error } = await supabase
         .from('roles')
         .insert(insertData)
         .select()
         .single();
 
-      console.log('[addRole] Insert response:', { data, error });
-
       if (error) {
-        console.error('[addRole] Database error:', error);
         throw error;
       }
 
@@ -905,12 +883,6 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       return createdRole.id;
     } catch (err: any) {
-      console.error('[addRole] CAUGHT ERROR:', err);
-      console.error('[addRole] Error type:', typeof err);
-      console.error('[addRole] Error message:', err?.message);
-      console.error('[addRole] Error stack:', err?.stack);
-      console.error('[addRole] Full error object:', JSON.stringify(err, null, 2));
-
       toast({
         title: 'Error creating role',
         description: err.message || err.hint || 'Unknown error occurred',
