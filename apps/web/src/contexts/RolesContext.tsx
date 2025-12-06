@@ -252,7 +252,15 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
 
       console.log('[refreshRoles] Setting roles state with', transformedRoles.length, 'roles');
-      setRoles(transformedRoles);
+
+      // Merge with any optimistic roles (temp IDs) that haven't been persisted yet
+      setRoles(prev => {
+        const optimisticRoles = prev.filter(r => r.id.startsWith('temp_'));
+        const mergedRoles = [...transformedRoles, ...optimisticRoles];
+        console.log('[refreshRoles] Merged with', optimisticRoles.length, 'optimistic roles, total:', mergedRoles.length);
+        return mergedRoles;
+      });
+
       console.log('[refreshRoles] Complete!');
     } catch (err: any) {
       console.error('[refreshRoles] Error:', err);
