@@ -850,10 +850,18 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       };
 
       console.log('[addRole] Attempting database insert...');
-      const { data, error } = await supabase
+
+      // Add timeout wrapper to detect hanging inserts
+      const insertPromise = supabase
         .from('roles')
         .insert(insertData)
         .select();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Insert timed out after 10 seconds')), 10000)
+      );
+
+      const { data, error } = await Promise.race([insertPromise, timeoutPromise]) as any;
 
       console.log('[addRole] Insert result:', { hasData: !!data, hasError: !!error, errorMsg: error?.message, dataType: typeof data, isArray: Array.isArray(data) });
 
