@@ -891,25 +891,37 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         is_active: true
       };
 
-      console.log('[addRole] Attempting database insert (fire and forget)...');
+      console.log('[addRole] Attempting database insert via RPC (fire and forget)...');
 
-      // Fire and forget - don't wait for response to avoid hanging
+      // Use RPC function instead of direct insert to bypass client hanging issue
       supabase
-        .from('roles')
-        .insert(insertData)
-        .then(({ error }) => {
+        .rpc('create_role_rpc', {
+          p_user_id: userId,
+          p_title: roleData.title,
+          p_department: roleData.department,
+          p_location: roleData.location,
+          p_employment_type: roleData.type,
+          p_salary_min: salary_min || null,
+          p_salary_max: salary_max || null,
+          p_salary_currency: salary_currency,
+          p_description: roleData.description
+        })
+        .then(({ data, error }) => {
           if (error) {
-            console.error('[addRole] Insert error:', error);
+            console.error('[addRole] RPC error:', error);
             toast({
               title: 'Error creating role',
               description: error.message,
               variant: 'destructive'
             });
           } else {
-            console.log('[addRole] Insert successful, refreshing in background...');
+            console.log('[addRole] RPC successful, data:', data);
             // Refresh in background after a short delay
             setTimeout(() => refreshRoles(), 500);
           }
+        })
+        .catch((err) => {
+          console.error('[addRole] RPC catch error:', err);
         });
 
       // Add role optimistically to UI immediately

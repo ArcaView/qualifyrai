@@ -9,6 +9,7 @@ CREATE OR REPLACE FUNCTION create_role_rpc(
   p_employment_type TEXT,
   p_salary_min NUMERIC DEFAULT NULL,
   p_salary_max NUMERIC DEFAULT NULL,
+  p_salary_currency TEXT DEFAULT '$',
   p_description TEXT DEFAULT NULL
 )
 RETURNS TABLE (
@@ -39,6 +40,7 @@ BEGIN
     employment_type,
     salary_min,
     salary_max,
+    salary_currency,
     description,
     is_active
   ) VALUES (
@@ -49,6 +51,7 @@ BEGIN
     p_employment_type,
     p_salary_min,
     p_salary_max,
+    p_salary_currency,
     p_description,
     true
   )
