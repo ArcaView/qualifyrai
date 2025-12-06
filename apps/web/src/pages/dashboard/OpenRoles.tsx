@@ -65,11 +65,13 @@ const OpenRoles = () => {
   });
 
   const handleCreateRole = async () => {
+    console.log('[handleCreateRole] Called with formData:', formData);
     try {
       await addRole(formData);
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
+      console.error('[handleCreateRole] Error:', error);
       // Error is already handled by addRole with toast notification
     }
   };

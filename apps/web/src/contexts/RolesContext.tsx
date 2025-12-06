@@ -804,8 +804,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addRole = async (roleData: Omit<Role, 'id' | 'candidatesList' | 'candidates' | 'createdAt' | 'status'>) => {
     try {
+      console.log('[addRole] Starting with data:', roleData);
+
       // Get current session for authentication
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log('[addRole] Session result:', { hasSession: !!session, hasError: !!sessionError });
 
       if (sessionError) {
         throw new Error('Could not get session. Please refresh the page and try again.');
@@ -840,11 +843,14 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         is_active: true
       };
 
+      console.log('[addRole] Attempting database insert...');
       const { data, error } = await supabase
         .from('roles')
         .insert(insertData)
         .select()
         .single();
+
+      console.log('[addRole] Insert result:', { hasData: !!data, hasError: !!error, errorMsg: error?.message });
 
       if (error) {
         throw error;
@@ -857,6 +863,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         throw new Error('No role returned from database');
       }
 
+      console.log('[addRole] Creating role object and updating state');
       const newRole: Role = {
         ...roleData,
         id: createdRole.id,
@@ -868,6 +875,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setRoles(prev => [...prev, newRole]);
 
+      console.log('[addRole] Tracking analytics event');
       // Track analytics event
       await trackEvent('role_created', {
         role_id: data.id,
@@ -876,6 +884,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         employment_type: roleData.type
       });
 
+      console.log('[addRole] Success - showing toast');
       toast({
         title: 'Role created',
         description: 'Role has been created successfully'
@@ -883,6 +892,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       return createdRole.id;
     } catch (err: any) {
+      console.error('[addRole] Error occurred:', err);
       toast({
         title: 'Error creating role',
         description: err.message || err.hint || 'Unknown error occurred',
