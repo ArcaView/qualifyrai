@@ -806,20 +806,21 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       console.log('[addRole] Starting with data:', roleData);
 
-      console.log('[addRole] About to get user...');
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      console.log('[addRole] Auth response:', { user, authError });
+      console.log('[addRole] About to get session...');
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      console.log('[addRole] Session response:', { session, authError });
 
       if (authError) {
         console.error('[addRole] Auth error:', authError);
         throw authError;
       }
 
-      if (!user) {
-        console.error('[addRole] No user found');
+      if (!session?.user) {
+        console.error('[addRole] No session or user found');
         throw new Error('Not authenticated');
       }
 
+      const user = session.user;
       console.log('[addRole] User authenticated:', user.id);
 
       // Parse salary if provided
