@@ -853,13 +853,30 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       console.log('[addRole] Inserting into database:', insertData);
 
+      // Try simpler insert without chaining to avoid hanging
+      console.log('[addRole] About to call insert...');
+      const insertResponse = await supabase
+        .from('roles')
+        .insert(insertData);
+
+      console.log('[addRole] Insert response:', insertResponse);
+
+      if (insertResponse.error) {
+        console.error('[addRole] Insert error:', insertResponse.error);
+        throw insertResponse.error;
+      }
+
+      // Now fetch the created role
+      console.log('[addRole] Fetching created role...');
       const { data, error } = await supabase
         .from('roles')
-        .insert(insertData)
         .select()
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single();
 
-      console.log('[addRole] Database response:', { data, error });
+      console.log('[addRole] Fetch response:', { data, error });
 
       if (error) {
         console.error('[addRole] Database error:', error);
