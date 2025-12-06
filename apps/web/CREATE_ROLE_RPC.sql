@@ -1,5 +1,5 @@
--- Create an RPC function to insert roles
--- This bypasses the Supabase JS client which seems to be hanging
+-- Simpler RPC function that returns whatever the table has
+-- This avoids type mismatch errors
 
 CREATE OR REPLACE FUNCTION create_role_rpc(
   p_user_id UUID,
@@ -12,21 +12,7 @@ CREATE OR REPLACE FUNCTION create_role_rpc(
   p_salary_currency TEXT DEFAULT '$',
   p_description TEXT DEFAULT NULL
 )
-RETURNS TABLE (
-  id UUID,
-  user_id UUID,
-  title TEXT,
-  department TEXT,
-  location TEXT,
-  employment_type TEXT,
-  salary_min NUMERIC,
-  salary_max NUMERIC,
-  salary_currency TEXT,
-  description TEXT,
-  is_active BOOLEAN,
-  created_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ
-)
+RETURNS SETOF roles
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
