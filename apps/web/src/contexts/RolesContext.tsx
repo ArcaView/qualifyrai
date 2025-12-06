@@ -811,13 +811,15 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       console.log('[addRole] Starting with data:', roleData);
 
-      // Force refresh the session to ensure JWT token is valid for RLS
-      console.log('[addRole] Refreshing session to ensure valid JWT for RLS...');
-      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+      // Get session WITHOUT refresh - refreshSession hangs
+      console.log('[addRole] Getting current session (not refreshing)...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (refreshError) {
-        console.error('[addRole] Session refresh error:', refreshError);
-        throw new Error('Session expired. Please refresh the page and try again.');
+      console.log('[addRole] Session retrieved:', { hasSession: !!session, error: sessionError });
+
+      if (sessionError) {
+        console.error('[addRole] Session error:', sessionError);
+        throw new Error('Could not get session. Please refresh the page and try again.');
       }
 
       if (!session?.user) {
@@ -826,7 +828,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       const userId = session.user.id;
       setCachedUserId(userId); // Update cache
-      console.log('[addRole] Session refreshed, user ID:', userId);
+      console.log('[addRole] Using user ID from session:', userId);
 
       // Parse salary if provided
       let salary_min, salary_max;
