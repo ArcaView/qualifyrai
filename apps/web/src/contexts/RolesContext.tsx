@@ -241,7 +241,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           location: role.location || '',
           type: role.employment_type || '',
           salary: role.salary_min && role.salary_max
-            ? `${role.salary_currency || '£'}${role.salary_min} - ${role.salary_currency || '£'}${role.salary_max}`
+            ? `${role.salary_currency || '£'}${role.salary_min.toLocaleString()} - ${role.salary_currency || '£'}${role.salary_max.toLocaleString()}`
             : '',
           description: role.description || '',
           candidates,
@@ -863,9 +863,15 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       // Parse salary if provided
-      let salary_min, salary_max;
+      let salary_min, salary_max, salary_currency = '$';
       if (roleData.salary) {
+        const currencyMatch = roleData.salary.match(/^([$£€¥])/);
         const salaryMatch = roleData.salary.match(/[\d,]+/g);
+
+        if (currencyMatch) {
+          salary_currency = currencyMatch[1];
+        }
+
         if (salaryMatch && salaryMatch.length >= 2) {
           salary_min = parseFloat(salaryMatch[0].replace(/,/g, ''));
           salary_max = parseFloat(salaryMatch[1].replace(/,/g, ''));
@@ -880,6 +886,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         employment_type: roleData.type,
         salary_min,
         salary_max,
+        salary_currency,
         description: roleData.description,
         is_active: true
       };

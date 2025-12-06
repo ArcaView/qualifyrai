@@ -42,6 +42,7 @@ import {
   Trash2,
   Calendar,
   AlertTriangle,
+  Banknote,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -50,6 +51,12 @@ import { useRoles, type Role } from "@/contexts/RolesContext";
 const OpenRoles = () => {
   const navigate = useNavigate();
   const { roles, addRole, updateRole, deleteRole: deleteRoleFromContext } = useRoles();
+
+  // Helper to get currency icon
+  const getCurrencyIcon = (salary: string) => {
+    if (salary.startsWith('$')) return DollarSign;
+    return Banknote; // Generic icon for £, €, ¥
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
@@ -274,16 +281,22 @@ const OpenRoles = () => {
                       </SelectContent>
                     </Select>
                     <Input
-                      placeholder="Min (e.g., 120000)"
-                      value={salaryData.min}
-                      onChange={(e) => setSalaryData({ ...salaryData, min: e.target.value.replace(/[^0-9]/g, '') })}
+                      placeholder="Min (e.g., 120,000)"
+                      value={salaryData.min ? parseInt(salaryData.min).toLocaleString() : ''}
+                      onChange={(e) => {
+                        const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                        setSalaryData({ ...salaryData, min: numericValue });
+                      }}
                       type="text"
                       inputMode="numeric"
                     />
                     <Input
-                      placeholder="Max (e.g., 160000)"
-                      value={salaryData.max}
-                      onChange={(e) => setSalaryData({ ...salaryData, max: e.target.value.replace(/[^0-9]/g, '') })}
+                      placeholder="Max (e.g., 160,000)"
+                      value={salaryData.max ? parseInt(salaryData.max).toLocaleString() : ''}
+                      onChange={(e) => {
+                        const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                        setSalaryData({ ...salaryData, max: numericValue });
+                      }}
                       type="text"
                       inputMode="numeric"
                     />
@@ -394,12 +407,15 @@ const OpenRoles = () => {
                           <Calendar className="w-4 h-4" />
                           {role.type}
                         </span>
-                        {role.salary && (
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="w-4 h-4" />
-                            {role.salary}
-                          </span>
-                        )}
+                        {role.salary && (() => {
+                          const CurrencyIcon = getCurrencyIcon(role.salary);
+                          return (
+                            <span className="flex items-center gap-1">
+                              <CurrencyIcon className="w-4 h-4" />
+                              {role.salary}
+                            </span>
+                          );
+                        })()}
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">
