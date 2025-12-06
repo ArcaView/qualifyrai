@@ -805,21 +805,27 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const addRole = async (roleData: Omit<Role, 'id' | 'candidatesList' | 'candidates' | 'createdAt' | 'status'>) => {
     try {
       console.log('[addRole] Starting with data:', roleData);
+      console.log('[addRole] Cached user ID:', cachedUserId);
 
-      // Get current session for authentication
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('[addRole] Session result:', { hasSession: !!session, hasError: !!sessionError });
+      // Use cached user ID if available, otherwise get from session
+      let userId = cachedUserId;
 
-      if (sessionError) {
-        throw new Error('Could not get session. Please refresh the page and try again.');
+      if (!userId) {
+        console.log('[addRole] No cached user ID, getting session...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log('[addRole] Session result:', { hasSession: !!session, hasError: !!sessionError });
+
+        if (sessionError) {
+          throw new Error('Could not get session. Please refresh the page and try again.');
+        }
+
+        if (!session?.user) {
+          throw new Error('Not authenticated. Please log in again.');
+        }
+
+        userId = session.user.id;
+        setCachedUserId(userId);
       }
-
-      if (!session?.user) {
-        throw new Error('Not authenticated. Please log in again.');
-      }
-
-      const userId = session.user.id;
-      setCachedUserId(userId);
 
       // Parse salary if provided
       let salary_min, salary_max;
