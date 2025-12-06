@@ -866,23 +866,39 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         is_active: true
       };
 
-      console.log('[addRole] Attempting database insert...');
+      console.log('[addRole] Attempting database insert (fire and forget)...');
 
-      // Just do insert without .select() to avoid hanging issue
-      const { error } = await supabase
+      // Fire and forget - don't wait for response to avoid hanging
+      supabase
         .from('roles')
-        .insert(insertData);
+        .insert(insertData)
+        .then(({ error }) => {
+          if (error) {
+            console.error('[addRole] Insert error:', error);
+            toast({
+              title: 'Error creating role',
+              description: error.message,
+              variant: 'destructive'
+            });
+          } else {
+            console.log('[addRole] Insert successful, refreshing in background...');
+            // Refresh in background after a short delay
+            setTimeout(() => refreshRoles(), 500);
+          }
+        });
 
-      console.log('[addRole] Insert result:', { hasError: !!error, errorMsg: error?.message });
+      // Add role optimistically to UI immediately
+      const tempRole: Role = {
+        ...roleData,
+        id: `temp_${Date.now()}`, // Temporary ID
+        candidatesList: [],
+        candidates: 0,
+        createdAt: new Date().toISOString().split('T')[0],
+        status: 'active',
+      };
 
-      if (error) {
-        throw error;
-      }
-
-      console.log('[addRole] Insert successful, refreshing roles list...');
-
-      // Refresh roles to get the newly created role with its ID
-      await refreshRoles();
+      console.log('[addRole] Adding role optimistically to UI');
+      setRoles(prev => [tempRole, ...prev]);
 
       console.log('[addRole] Tracking analytics event (non-blocking)');
       // Track analytics event (don't await to avoid blocking)
@@ -898,8 +914,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         description: 'Role has been created successfully'
       });
 
-      // Return the title since we don't have the ID immediately
-      return roleData.title;
+      return tempRole.id;
     } catch (err: any) {
       console.error('[addRole] Error occurred:', err);
       toast({
