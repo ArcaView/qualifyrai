@@ -811,21 +811,22 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       console.log('[addRole] Starting with data:', roleData);
 
-      // Use cached user ID to avoid hanging auth call
-      console.log('[addRole] Using cached user ID:', cachedUserId);
+      // Force refresh the session to ensure JWT token is valid for RLS
+      console.log('[addRole] Refreshing session to ensure valid JWT for RLS...');
+      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
 
-      if (!cachedUserId) {
-        console.error('[addRole] No cached user ID - trying to get session as fallback');
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          throw new Error('Not authenticated - please refresh the page');
-        }
-        setCachedUserId(session.user.id);
-        console.log('[addRole] Got user from session:', session.user.id);
+      if (refreshError) {
+        console.error('[addRole] Session refresh error:', refreshError);
+        throw new Error('Session expired. Please refresh the page and try again.');
       }
 
-      const userId = cachedUserId;
-      console.log('[addRole] Using user ID:', userId);
+      if (!session?.user) {
+        throw new Error('Not authenticated. Please log in again.');
+      }
+
+      const userId = session.user.id;
+      setCachedUserId(userId); // Update cache
+      console.log('[addRole] Session refreshed, user ID:', userId);
 
       // Parse salary if provided
       let salary_min, salary_max;
