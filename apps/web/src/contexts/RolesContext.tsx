@@ -180,6 +180,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cachedUserId, setCachedUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Fetch roles from database
@@ -191,8 +192,12 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setRoles([]);
+        setCachedUserId(null);
         return;
       }
+
+      // Cache the user ID for use in other functions
+      setCachedUserId(user.id);
 
       // Fetch roles
       const { data: rolesData, error: rolesError } = await supabase
@@ -806,38 +811,21 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       console.log('[addRole] Starting with data:', roleData);
 
-      console.log('[addRole] About to get session...');
+      // Use cached user ID to avoid hanging auth call
+      console.log('[addRole] Using cached user ID:', cachedUserId);
 
-      // Add timeout to detect if getSession is hanging
-      const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('getSession timed out after 5 seconds')), 5000);
-      });
-
-      let sessionResult;
-      try {
-        sessionResult = await Promise.race([sessionPromise, timeoutPromise]) as any;
-        console.log('[addRole] Session call completed');
-      } catch (timeoutError) {
-        console.error('[addRole] Session call TIMED OUT:', timeoutError);
-        throw timeoutError;
+      if (!cachedUserId) {
+        console.error('[addRole] No cached user ID - trying to get session as fallback');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          throw new Error('Not authenticated - please refresh the page');
+        }
+        setCachedUserId(session.user.id);
+        console.log('[addRole] Got user from session:', session.user.id);
       }
 
-      const { data: { session }, error: authError } = sessionResult;
-      console.log('[addRole] Session response:', { session, authError });
-
-      if (authError) {
-        console.error('[addRole] Auth error:', authError);
-        throw authError;
-      }
-
-      if (!session?.user) {
-        console.error('[addRole] No session or user found');
-        throw new Error('Not authenticated');
-      }
-
-      const user = session.user;
-      console.log('[addRole] User authenticated:', user.id);
+      const userId = cachedUserId;
+      console.log('[addRole] Using user ID:', userId);
 
       // Parse salary if provided
       let salary_min, salary_max;
@@ -852,7 +840,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       console.log('[addRole] Parsed salary:', { salary_min, salary_max });
 
       const insertData = {
-        user_id: user.id,
+        user_id: userId,
         title: roleData.title,
         department: roleData.department,
         location: roleData.location,
