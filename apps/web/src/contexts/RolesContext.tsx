@@ -880,14 +880,14 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setRoles(prev => [...prev, newRole]);
 
-      console.log('[addRole] Tracking analytics event');
-      // Track analytics event
-      await trackEvent('role_created', {
-        role_id: data.id,
+      console.log('[addRole] Tracking analytics event (non-blocking)');
+      // Track analytics event (don't await to avoid blocking)
+      trackEvent('role_created', {
+        role_id: createdRole.id,
         title: roleData.title,
         department: roleData.department,
         employment_type: roleData.type
-      });
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       console.log('[addRole] Success - showing toast');
       toast({
