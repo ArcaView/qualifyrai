@@ -853,10 +853,9 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data, error } = await supabase
         .from('roles')
         .insert(insertData)
-        .select()
-        .single();
+        .select();
 
-      console.log('[addRole] Insert result:', { hasData: !!data, hasError: !!error, errorMsg: error?.message });
+      console.log('[addRole] Insert result:', { hasData: !!data, hasError: !!error, errorMsg: error?.message, dataType: typeof data, isArray: Array.isArray(data) });
 
       if (error) {
         throw error;
