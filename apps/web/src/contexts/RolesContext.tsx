@@ -189,21 +189,25 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setIsLoading(true);
       setError(null);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setRoles([]);
-        setCachedUserId(null);
-        return;
-      }
+      // Use cached user ID if available, otherwise get from session
+      let userId = cachedUserId;
 
-      // Cache the user ID for use in other functions
-      setCachedUserId(user.id);
+      if (!userId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          setRoles([]);
+          setCachedUserId(null);
+          return;
+        }
+        userId = session.user.id;
+        setCachedUserId(userId);
+      }
 
       // Fetch roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('roles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (rolesError) throw rolesError;
@@ -212,7 +216,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data: candidatesData, error: candidatesError } = await supabase
         .from('candidates')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (candidatesError) throw candidatesError;
 
@@ -258,8 +262,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateRole = async (id: string, updates: Partial<Role>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const dbUpdates: any = {};
       if (updates.title) dbUpdates.title = updates.title;
@@ -273,7 +277,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .from('roles')
         .update(dbUpdates)
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -304,14 +308,14 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteRole = async (id: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const { error } = await supabase
         .from('roles')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -338,8 +342,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addCandidateToRole = async (roleId: string, candidate: Candidate) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       // Build cv_parsed_data with all available CV information
       const cvParsedData: any = {
@@ -383,7 +387,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const { data, error } = await supabase
         .from('candidates')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           role_id: roleId,
           name: candidate.name,
           email: candidate.email,
@@ -445,14 +449,14 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const removeCandidateFromRole = async (roleId: string, candidateId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const { error } = await supabase
         .from('candidates')
         .delete()
         .eq('id', candidateId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -484,8 +488,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateCandidateStatus = async (roleId: string, candidateId: string, status: Candidate['status'], note?: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       // Get current candidate data to update status history
       const role = roles.find(r => r.id === roleId);
@@ -511,7 +515,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           }
         })
         .eq('id', candidateId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -551,14 +555,14 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateCandidateSummary = async (roleId: string, candidateId: string, summary: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const { error } = await supabase
         .from('candidates')
         .update({ notes: summary })
         .eq('id', candidateId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -591,8 +595,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateCandidateScore = async (roleId: string, candidateId: string, score: number, scoreBreakdown: any, fit: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const { error, data } = await supabase
         .from('candidates')
@@ -638,8 +642,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addInterview = async (roleId: string, candidateId: string, interview: Omit<Interview, 'id'>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const role = roles.find(r => r.id === roleId);
       const candidate = role?.candidatesList.find(c => c.id === candidateId);
@@ -657,7 +661,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .from('candidates')
         .update({ interview_notes: updatedInterviews })
         .eq('id', candidateId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -696,8 +700,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateInterview = async (roleId: string, candidateId: string, interviewId: string, updates: Partial<Interview>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const role = roles.find(r => r.id === roleId);
       const candidate = role?.candidatesList.find(c => c.id === candidateId);
@@ -712,7 +716,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .from('candidates')
         .update({ interview_notes: updatedInterviews })
         .eq('id', candidateId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
@@ -751,8 +755,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const deleteInterview = async (roleId: string, candidateId: string, interviewId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userId = cachedUserId;
+      if (!userId) throw new Error('Not authenticated');
 
       const role = roles.find(r => r.id === roleId);
       const candidate = role?.candidatesList.find(c => c.id === candidateId);
@@ -765,7 +769,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .from('candidates')
         .update({ interview_notes: updatedInterviews })
         .eq('id', candidateId)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 
