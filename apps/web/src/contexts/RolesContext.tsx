@@ -853,12 +853,24 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       console.log('[addRole] Inserting into database:', insertData);
 
+      // Test if supabase client works at all
+      console.log('[addRole] Testing supabase client...');
+      console.log('[addRole] Supabase object:', typeof supabase);
+      console.log('[addRole] Supabase.from:', typeof supabase.from);
+
       // Try simpler insert without chaining to avoid hanging
       console.log('[addRole] About to call insert...');
-      const insertResponse = await supabase
+
+      const startTime = Date.now();
+      const insertPromise = supabase
         .from('roles')
         .insert(insertData);
 
+      console.log('[addRole] Insert promise created, now awaiting...');
+      const insertResponse = await insertPromise;
+      const endTime = Date.now();
+
+      console.log(`[addRole] Insert completed in ${endTime - startTime}ms`);
       console.log('[addRole] Insert response:', insertResponse);
 
       if (insertResponse.error) {
