@@ -256,8 +256,18 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Merge with any optimistic roles (temp IDs) that haven't been persisted yet
       setRoles(prev => {
         const optimisticRoles = prev.filter(r => r.id.startsWith('temp_'));
-        const mergedRoles = [...transformedRoles, ...optimisticRoles];
-        console.log('[refreshRoles] Merged with', optimisticRoles.length, 'optimistic roles, total:', mergedRoles.length);
+
+        // Remove optimistic roles that match persisted roles (by title, department, location)
+        const remainingOptimisticRoles = optimisticRoles.filter(optRole => {
+          return !transformedRoles.some(dbRole =>
+            dbRole.title === optRole.title &&
+            dbRole.department === optRole.department &&
+            dbRole.location === optRole.location
+          );
+        });
+
+        const mergedRoles = [...transformedRoles, ...remainingOptimisticRoles];
+        console.log('[refreshRoles] Merged with', remainingOptimisticRoles.length, 'optimistic roles (filtered out', optimisticRoles.length - remainingOptimisticRoles.length, 'duplicates), total:', mergedRoles.length);
         return mergedRoles;
       });
 
