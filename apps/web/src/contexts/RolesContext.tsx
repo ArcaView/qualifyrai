@@ -806,8 +806,19 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     try {
       console.log('[addRole] Starting with data:', roleData);
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      console.log('[addRole] About to get user...');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      console.log('[addRole] Auth response:', { user, authError });
+
+      if (authError) {
+        console.error('[addRole] Auth error:', authError);
+        throw authError;
+      }
+
+      if (!user) {
+        console.error('[addRole] No user found');
+        throw new Error('Not authenticated');
+      }
 
       console.log('[addRole] User authenticated:', user.id);
 
@@ -876,7 +887,12 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       return data.id;
     } catch (err: any) {
-      console.error('Failed to create role:', err);
+      console.error('[addRole] CAUGHT ERROR:', err);
+      console.error('[addRole] Error type:', typeof err);
+      console.error('[addRole] Error message:', err?.message);
+      console.error('[addRole] Error stack:', err?.stack);
+      console.error('[addRole] Full error object:', JSON.stringify(err, null, 2));
+
       toast({
         title: 'Error creating role',
         description: err.message || err.hint || 'Unknown error occurred',
