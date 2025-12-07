@@ -871,6 +871,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setRoles(prev => [optimisticRole, ...prev]);
 
       // Fire and forget - don't await the insert to avoid hanging
+      console.log('[addRole] Starting insert with userId:', userId);
       supabase
         .from('roles')
         .insert({
@@ -885,9 +886,10 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           description: roleData.description,
           is_active: true
         })
-        .then(({ error }) => {
+        .then(({ error, data }) => {
+          console.log('[addRole] Insert completed:', { error, data });
           if (error) {
-            console.error('Insert error:', error);
+            console.error('[addRole] Insert error:', error);
             // Remove optimistic role if insert failed
             setRoles(prev => prev.filter(r => r.id !== tempId));
             toast({
@@ -896,9 +898,13 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               variant: 'destructive'
             });
           } else {
+            console.log('[addRole] Insert successful, refreshing roles...');
             // Refresh to get the real ID
             setTimeout(() => refreshRoles(), 1000);
           }
+        })
+        .catch((err) => {
+          console.error('[addRole] Insert catch error:', err);
         });
 
       // Track analytics event (non-blocking)
