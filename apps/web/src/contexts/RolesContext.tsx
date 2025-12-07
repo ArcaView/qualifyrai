@@ -202,6 +202,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       if (rolesError) throw rolesError;
 
+      // Filter out any roles with temp IDs (from old cached data)
+      const validRolesData = (rolesData || []).filter(role =>
+        role.id && !role.id.toString().startsWith('temp_')
+      );
+
       // Fetch candidates for all roles
       const { data: candidatesData, error: candidatesError } = await supabase
         .from('candidates')
@@ -211,7 +216,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (candidatesError) throw candidatesError;
 
       // Transform data to match Role interface
-      const transformedRoles: Role[] = (rolesData || []).map(role => {
+      const transformedRoles: Role[] = validRolesData.map(role => {
         const roleCandidates = (candidatesData || []).filter(c => c.role_id === role.id);
         const { candidatesList, candidates } = transformCandidatesForRole(roleCandidates);
 
@@ -785,6 +790,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         throw error;
       }
 
+      // Validate that we received a proper database-generated ID
+      if (!data || !data.id || data.id.toString().startsWith('temp_')) {
+        throw new Error('Failed to create role: Invalid ID received from database');
+      }
+
       const newRole: Role = {
         ...roleData,
         id: data.id,
@@ -812,9 +822,21 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       return data.id;
     } catch (err: any) {
       console.error('Failed to create role:', err);
+
+      // Provide helpful error messages based on common issues
+      let errorMessage = err.message || 'Unknown error occurred';
+
+      if (err.message?.includes('violates row-level security policy')) {
+        errorMessage = 'Authentication error. Please refresh the page and try again.';
+      } else if (err.message?.includes('duplicate key')) {
+        errorMessage = 'A role with this information already exists.';
+      } else if (err.message?.includes('Invalid ID')) {
+        errorMessage = 'Failed to create role in database. Please try again.';
+      }
+
       toast({
         title: 'Error creating role',
-        description: err.message || err.hint || 'Unknown error occurred',
+        description: errorMessage,
         variant: 'destructive'
       });
       throw err;
