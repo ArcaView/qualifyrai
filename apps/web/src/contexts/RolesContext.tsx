@@ -870,8 +870,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setRoles(prev => [optimisticRole, ...prev]);
 
-      // Insert without awaiting select - just fire and refresh
-      const insertPromise = supabase
+      // Fire and forget - don't await the insert to avoid hanging
+      supabase
         .from('roles')
         .insert({
           user_id: userId,
@@ -884,19 +884,22 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           salary_currency,
           description: roleData.description,
           is_active: true
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error('Insert error:', error);
+            // Remove optimistic role if insert failed
+            setRoles(prev => prev.filter(r => r.id !== tempId));
+            toast({
+              title: 'Error creating role',
+              description: error.message,
+              variant: 'destructive'
+            });
+          } else {
+            // Refresh to get the real ID
+            setTimeout(() => refreshRoles(), 1000);
+          }
         });
-
-      // Add 5 second timeout for the insert
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout - please try again')), 5000)
-      );
-
-      const { error } = await Promise.race([insertPromise, timeoutPromise]) as any;
-
-      if (error) throw error;
-
-      // Refresh roles in background to get the real ID
-      setTimeout(() => refreshRoles(), 500);
 
       // Track analytics event (non-blocking)
       trackEvent('role_created', {

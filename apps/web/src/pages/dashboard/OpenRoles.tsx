@@ -91,10 +91,14 @@ const OpenRoles = () => {
     }
 
     const roleData = { ...formData, salary: salaryString };
+
+    // Close dialog immediately
+    setDialogOpen(false);
+    resetForm();
+
+    // Create role in background
     try {
       await addRole(roleData);
-      setDialogOpen(false);
-      resetForm();
     } catch (error: any) {
       // Error is already handled by addRole with toast notification
     }
