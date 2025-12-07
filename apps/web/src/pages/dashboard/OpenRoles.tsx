@@ -62,6 +62,9 @@ const OpenRoles = () => {
     type: 'full-time',
     salary: '',
     description: '',
+    currency: '£',
+    salaryMin: '',
+    salaryMax: '',
   });
 
   const handleCreateRole = async () => {
@@ -77,6 +80,27 @@ const OpenRoles = () => {
 
   const handleEditRole = (role: Role) => {
     setEditingRole(role);
+
+    // Parse existing salary if available
+    let currency = '£';
+    let salaryMin = '';
+    let salaryMax = '';
+
+    if (role.salary) {
+      // Extract currency symbol
+      const currencyMatch = role.salary.match(/^[£$€¥]/);
+      if (currencyMatch) {
+        currency = currencyMatch[0];
+      }
+
+      // Extract numbers (handle both formats: "£35,000 - £40,000" and "35000 - 40000")
+      const numbers = role.salary.match(/[\d,]+/g);
+      if (numbers && numbers.length >= 2) {
+        salaryMin = numbers[0].replace(/,/g, '');
+        salaryMax = numbers[1].replace(/,/g, '');
+      }
+    }
+
     setFormData({
       title: role.title,
       department: role.department,
@@ -84,6 +108,9 @@ const OpenRoles = () => {
       type: role.type,
       salary: role.salary,
       description: role.description,
+      currency,
+      salaryMin,
+      salaryMax,
     });
     setDialogOpen(true);
   };
@@ -122,8 +149,41 @@ const OpenRoles = () => {
       type: 'full-time',
       salary: '',
       description: '',
+      currency: '£',
+      salaryMin: '',
+      salaryMax: '',
     });
     setEditingRole(null);
+  };
+
+  // Format number with thousands separator
+  const formatNumberWithCommas = (value: string): string => {
+    const num = value.replace(/,/g, '');
+    if (!num || isNaN(Number(num))) return value;
+    return Number(num).toLocaleString('en-US');
+  };
+
+  // Handle salary input with formatting
+  const handleSalaryChange = (field: 'salaryMin' | 'salaryMax', value: string) => {
+    // Remove non-numeric characters except commas
+    const cleanValue = value.replace(/[^\d]/g, '');
+
+    // Update form data with clean value
+    setFormData(prev => ({ ...prev, [field]: cleanValue }));
+
+    // Update the salary field for backward compatibility
+    if (field === 'salaryMin' || field === 'salaryMax') {
+      const min = field === 'salaryMin' ? cleanValue : formData.salaryMin;
+      const max = field === 'salaryMax' ? cleanValue : formData.salaryMax;
+
+      if (min && max) {
+        const formattedSalary = `${formData.currency}${formatNumberWithCommas(min)} - ${formData.currency}${formatNumberWithCommas(max)}`;
+        setFormData(prev => ({ ...prev, salary: formattedSalary }));
+      } else if (min) {
+        const formattedSalary = `${formData.currency}${formatNumberWithCommas(min)}`;
+        setFormData(prev => ({ ...prev, salary: formattedSalary }));
+      }
+    }
   };
 
   const handleDialogClose = (open: boolean) => {
@@ -217,13 +277,55 @@ const OpenRoles = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="salary">Salary Range</Label>
-                  <Input
-                    id="salary"
-                    placeholder="e.g., $120k - $160k"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                  />
+                  <Label>Salary Range</Label>
+                  <div className="grid grid-cols-[auto_1fr_auto_1fr] gap-2 items-center">
+                    {/* Currency Selector */}
+                    <Select
+                      value={formData.currency}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, currency: value });
+                        // Update salary string if min/max exist
+                        if (formData.salaryMin && formData.salaryMax) {
+                          const formattedSalary = `${value}${formatNumberWithCommas(formData.salaryMin)} - ${value}${formatNumberWithCommas(formData.salaryMax)}`;
+                          setFormData(prev => ({ ...prev, salary: formattedSalary }));
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="£">£ GBP</SelectItem>
+                        <SelectItem value="$">$ USD</SelectItem>
+                        <SelectItem value="€">€ EUR</SelectItem>
+                        <SelectItem value="¥">¥ JPY</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Minimum Salary */}
+                    <Input
+                      placeholder="Min (e.g., 35000)"
+                      value={formatNumberWithCommas(formData.salaryMin)}
+                      onChange={(e) => handleSalaryChange('salaryMin', e.target.value)}
+                      className="text-right"
+                    />
+
+                    {/* Separator */}
+                    <span className="text-muted-foreground">to</span>
+
+                    {/* Maximum Salary */}
+                    <Input
+                      placeholder="Max (e.g., 40000)"
+                      value={formatNumberWithCommas(formData.salaryMax)}
+                      onChange={(e) => handleSalaryChange('salaryMax', e.target.value)}
+                      className="text-right"
+                    />
+                  </div>
+                  {formData.salaryMin && formData.salaryMax && (
+                    <p className="text-xs text-muted-foreground">
+                      Preview: {formData.currency}{formatNumberWithCommas(formData.salaryMin)} - {formData.currency}{formatNumberWithCommas(formData.salaryMax)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
