@@ -186,16 +186,13 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Fetch roles from database
   const refreshRoles = async () => {
     try {
-      console.log('[refreshRoles] Starting...');
       setIsLoading(true);
       setError(null);
 
       // Use cached user ID if available, otherwise get from session
       let userId = cachedUserId;
-      console.log('[refreshRoles] Cached user ID:', userId);
 
       if (!userId) {
-        console.log('[refreshRoles] No cached ID, getting session...');
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           setRoles([]);
@@ -206,7 +203,6 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setCachedUserId(userId);
       }
 
-      console.log('[refreshRoles] Fetching roles...');
       // Fetch roles
       const { data: rolesData, error: rolesError } = await supabase
         .from('roles')
@@ -214,18 +210,13 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      console.log('[refreshRoles] Roles fetched:', { count: rolesData?.length, hasError: !!rolesError });
-
       if (rolesError) throw rolesError;
 
-      console.log('[refreshRoles] Fetching candidates...');
       // Fetch candidates for all roles
       const { data: candidatesData, error: candidatesError } = await supabase
         .from('candidates')
         .select('*')
         .eq('user_id', userId);
-
-      console.log('[refreshRoles] Candidates fetched:', { count: candidatesData?.length, hasError: !!candidatesError });
 
       if (candidatesError) throw candidatesError;
 
@@ -251,8 +242,6 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         };
       });
 
-      console.log('[refreshRoles] Setting roles state with', transformedRoles.length, 'roles');
-
       // Merge with any optimistic roles (temp IDs) that haven't been persisted yet
       setRoles(prev => {
         const optimisticRoles = prev.filter(r => r.id.startsWith('temp_'));
@@ -267,13 +256,9 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         });
 
         const mergedRoles = [...transformedRoles, ...remainingOptimisticRoles];
-        console.log('[refreshRoles] Merged with', remainingOptimisticRoles.length, 'optimistic roles (filtered out', optimisticRoles.length - remainingOptimisticRoles.length, 'duplicates), total:', mergedRoles.length);
         return mergedRoles;
       });
-
-      console.log('[refreshRoles] Complete!');
     } catch (err: any) {
-      console.error('[refreshRoles] Error:', err);
       setError(err.message);
       toast({
         title: 'Error loading roles',
@@ -281,7 +266,6 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         variant: 'destructive'
       });
     } finally {
-      console.log('[refreshRoles] Finally block - setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -839,16 +823,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const addRole = async (roleData: Omit<Role, 'id' | 'candidatesList' | 'candidates' | 'createdAt' | 'status'>) => {
     try {
-      console.log('[addRole] Starting with data:', roleData);
-      console.log('[addRole] Cached user ID:', cachedUserId);
-
       // Use cached user ID if available, otherwise get from session
       let userId = cachedUserId;
 
       if (!userId) {
-        console.log('[addRole] No cached user ID, getting session...');
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        console.log('[addRole] Session result:', { hasSession: !!session, hasError: !!sessionError });
 
         if (sessionError) {
           throw new Error('Could not get session. Please refresh the page and try again.');
@@ -878,82 +857,54 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
-      const insertData = {
-        user_id: userId,
-        title: roleData.title,
-        department: roleData.department,
-        location: roleData.location,
-        employment_type: roleData.type,
-        salary_min,
-        salary_max,
-        salary_currency,
-        description: roleData.description,
-        is_active: true
-      };
+      // Use RPC function with timeout to prevent hanging
+      const rpcPromise = supabase.rpc('create_role_rpc', {
+        p_user_id: userId,
+        p_title: roleData.title,
+        p_department: roleData.department,
+        p_location: roleData.location,
+        p_employment_type: roleData.type,
+        p_salary_min: salary_min || null,
+        p_salary_max: salary_max || null,
+        p_salary_currency: salary_currency,
+        p_description: roleData.description
+      }).select().single();
 
-      console.log('[addRole] Attempting database insert via RPC (fire and forget)...');
+      // Add 10 second timeout
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
+      );
 
-      // Use RPC function instead of direct insert to bypass client hanging issue
-      supabase
-        .rpc('create_role_rpc', {
-          p_user_id: userId,
-          p_title: roleData.title,
-          p_department: roleData.department,
-          p_location: roleData.location,
-          p_employment_type: roleData.type,
-          p_salary_min: salary_min || null,
-          p_salary_max: salary_max || null,
-          p_salary_currency: salary_currency,
-          p_description: roleData.description
-        })
-        .then(({ data, error }) => {
-          if (error) {
-            console.error('[addRole] RPC error:', error);
-            toast({
-              title: 'Error creating role',
-              description: error.message,
-              variant: 'destructive'
-            });
-          } else {
-            console.log('[addRole] RPC successful, data:', data);
-            // Refresh in background after a short delay
-            setTimeout(() => refreshRoles(), 500);
-          }
-        })
-        .catch((err) => {
-          console.error('[addRole] RPC catch error:', err);
-        });
+      const { data, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
 
-      // Add role optimistically to UI immediately
-      const tempRole: Role = {
+      if (error) throw error;
+
+      const newRole: Role = {
         ...roleData,
-        id: `temp_${Date.now()}`, // Temporary ID
+        id: data.id,
         candidatesList: [],
         candidates: 0,
-        createdAt: new Date().toISOString().split('T')[0],
+        createdAt: data.created_at.split('T')[0],
         status: 'active',
       };
 
-      console.log('[addRole] Adding role optimistically to UI');
-      setRoles(prev => [tempRole, ...prev]);
+      setRoles(prev => [newRole, ...prev]);
 
-      console.log('[addRole] Tracking analytics event (non-blocking)');
-      // Track analytics event (don't await to avoid blocking)
-      trackEvent('role_created', {
+      // Track analytics event
+      await trackEvent('role_created', {
+        role_id: data.id,
         title: roleData.title,
         department: roleData.department,
         employment_type: roleData.type
-      }).catch(err => console.error('Analytics tracking failed:', err));
+      });
 
-      console.log('[addRole] Success - showing toast');
       toast({
         title: 'Role created',
         description: 'Role has been created successfully'
       });
 
-      return tempRole.id;
+      return data.id;
     } catch (err: any) {
-      console.error('[addRole] Error occurred:', err);
       toast({
         title: 'Error creating role',
         description: err.message || err.hint || 'Unknown error occurred',

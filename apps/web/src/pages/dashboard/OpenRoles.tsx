@@ -36,13 +36,14 @@ import {
   Plus,
   MapPin,
   DollarSign,
+  Euro,
+  PoundSterling,
   Users,
   FileText,
   Edit,
   Trash2,
   Calendar,
   AlertTriangle,
-  Banknote,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -54,8 +55,11 @@ const OpenRoles = () => {
 
   // Helper to get currency icon
   const getCurrencyIcon = (salary: string) => {
-    if (salary.startsWith('$')) return DollarSign;
-    return Banknote; // Generic icon for £, €, ¥
+    if (!salary) return DollarSign;
+    if (salary.startsWith('£')) return PoundSterling;
+    if (salary.startsWith('€')) return Euro;
+    if (salary.startsWith('¥')) return DollarSign; // Using DollarSign for Yen as lucide doesn't have a Yen icon
+    return DollarSign;
   };
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -78,19 +82,20 @@ const OpenRoles = () => {
   });
 
   const handleCreateRole = async () => {
-    // Combine salary data into formatted string
-    const salaryString = salaryData.min && salaryData.max
-      ? `${salaryData.currency}${salaryData.min} - ${salaryData.currency}${salaryData.max}`
-      : '';
+    // Combine salary data into formatted string with thousand separators
+    let salaryString = '';
+    if (salaryData.min && salaryData.max) {
+      const min = parseInt(salaryData.min).toLocaleString();
+      const max = parseInt(salaryData.max).toLocaleString();
+      salaryString = `${salaryData.currency}${min} - ${salaryData.currency}${max}`;
+    }
 
     const roleData = { ...formData, salary: salaryString };
-    console.log('[handleCreateRole] Called with formData:', roleData);
     try {
       await addRole(roleData);
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      console.error('[handleCreateRole] Error:', error);
       // Error is already handled by addRole with toast notification
     }
   };
@@ -126,10 +131,13 @@ const OpenRoles = () => {
   const handleUpdateRole = async () => {
     if (!editingRole) return;
 
-    // Combine salary data into formatted string
-    const salaryString = salaryData.min && salaryData.max
-      ? `${salaryData.currency}${salaryData.min} - ${salaryData.currency}${salaryData.max}`
-      : '';
+    // Combine salary data into formatted string with thousand separators
+    let salaryString = '';
+    if (salaryData.min && salaryData.max) {
+      const min = parseInt(salaryData.min).toLocaleString();
+      const max = parseInt(salaryData.max).toLocaleString();
+      salaryString = `${salaryData.currency}${min} - ${salaryData.currency}${max}`;
+    }
 
     const roleData = { ...formData, salary: salaryString };
     try {
@@ -139,7 +147,6 @@ const OpenRoles = () => {
       resetForm();
     } catch (error: any) {
       // Error is already handled by updateRole with toast notification
-      // TODO: Replace with proper error logging service (e.g., Sentry)
     }
   };
 
