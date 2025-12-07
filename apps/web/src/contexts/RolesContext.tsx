@@ -103,7 +103,7 @@ interface RolesContextType {
   removeCandidateFromRole: (roleId: string, candidateId: string) => Promise<void>;
   updateCandidateStatus: (roleId: string, candidateId: string, status: Candidate['status'], note?: string) => Promise<void>;
   updateCandidateSummary: (roleId: string, candidateId: string, summary: string) => Promise<void>;
-  updateCandidateScore: (roleId: string, candidateId: string, score: number, scoreBreakdown: any, fit: string) => Promise<void>;
+  updateCandidateScore: (roleId: string, candidateId: string, score: number, scoreBreakdown: any, fit: Candidate['fit']) => Promise<void>;
   addInterview: (roleId: string, candidateId: string, interview: Omit<Interview, 'id'>) => Promise<void>;
   updateInterview: (roleId: string, candidateId: string, interviewId: string, updates: Partial<Interview>) => Promise<void>;
   deleteInterview: (roleId: string, candidateId: string, interviewId: string) => Promise<void>;
@@ -212,6 +212,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       if (rolesError) throw rolesError;
 
+      // Filter out any roles with temp IDs (from old cached data)
+      const validRolesData = (rolesData || []).filter(role =>
+        role.id && !role.id.toString().startsWith('temp_')
+      );
+
       // Fetch candidates for all roles
       const { data: candidatesData, error: candidatesError } = await supabase
         .from('candidates')
@@ -221,7 +226,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (candidatesError) throw candidatesError;
 
       // Transform data to match Role interface
-      const transformedRoles: Role[] = (rolesData || []).map(role => {
+      const transformedRoles: Role[] = validRolesData.map(role => {
         const roleCandidates = (candidatesData || []).filter(c => c.role_id === role.id);
         const { candidatesList, candidates } = transformCandidatesForRole(roleCandidates);
 
@@ -608,25 +613,23 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  const updateCandidateScore = async (roleId: string, candidateId: string, score: number, scoreBreakdown: any, fit: string) => {
+  const updateCandidateScore = async (roleId: string, candidateId: string, score: number, scoreBreakdown: any, fit: Candidate['fit']) => {
     try {
       const userId = cachedUserId;
       if (!userId) throw new Error('Not authenticated');
 
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from('candidates')
         .update({
-          score,
-          score_breakdown: scoreBreakdown,
-          fit
+          overall_score: score,
+          cv_parsed_data: {
+            score_breakdown: scoreBreakdown
+          }
         })
         .eq('id', candidateId)
-        .eq('user_id', userId)
-        .select();
+        .eq('user_id', userId);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setRoles(prev => prev.map(role => {
         if (role.id === roleId) {
@@ -905,14 +908,9 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         })
         .catch((err) => {
           console.error('[addRole] Insert catch error:', err);
+          // Remove optimistic role on error
+          setRoles(prev => prev.filter(r => r.id !== tempId));
         });
-
-      // Track analytics event (non-blocking)
-      trackEvent('role_created', {
-        title: roleData.title,
-        department: roleData.department,
-        employment_type: roleData.type
-      }).catch(() => {});
 
       toast({
         title: 'Role created',
@@ -921,14 +919,27 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       return tempId;
     } catch (err: any) {
+      console.error('Failed to create role:', err);
+
+      // Provide helpful error messages based on common issues
+      let errorMessage = err.message || err.hint || 'Unknown error occurred';
+      if (err.message?.includes('violates row-level security policy')) {
+        errorMessage = 'Authentication error. Please refresh the page and try again.';
+      } else if (err.message?.includes('duplicate key')) {
+        errorMessage = 'A role with this information already exists.';
+      } else if (err.message?.includes('Invalid ID')) {
+        errorMessage = 'Failed to create role in database. Please try again.';
+      }
+
       toast({
         title: 'Error creating role',
-        description: err.message || err.hint || 'Unknown error occurred',
+        description: errorMessage,
         variant: 'destructive'
       });
       throw err;
     }
   };
+
 
   return (
     <RolesContext.Provider value={{
