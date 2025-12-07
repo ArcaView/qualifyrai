@@ -68,11 +68,19 @@ const OpenRoles = () => {
   });
 
   const handleCreateRole = async () => {
+    console.log('=== CREATE ROLE CLICKED ===');
+    console.log('Form Data:', formData);
     try {
-      await addRole(formData);
+      console.log('Calling addRole...');
+      const roleId = await addRole(formData);
+      console.log('Role created successfully, ID:', roleId);
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
+      console.error('=== CREATE ROLE FAILED ===');
+      console.error('Error:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error hint:', error?.hint);
       // Error is already handled by addRole with toast notification
       // TODO: Replace with proper error logging service (e.g., Sentry)
     }
