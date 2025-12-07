@@ -857,53 +857,60 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         }
       }
 
-      // Use RPC function with timeout to prevent hanging
-      const rpcPromise = supabase.rpc('create_role_rpc', {
-        p_user_id: userId,
-        p_title: roleData.title,
-        p_department: roleData.department,
-        p_location: roleData.location,
-        p_employment_type: roleData.type,
-        p_salary_min: salary_min || null,
-        p_salary_max: salary_max || null,
-        p_salary_currency: salary_currency,
-        p_description: roleData.description
-      }).select().single();
-
-      // Add 10 second timeout
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout - please try again')), 10000)
-      );
-
-      const { data, error } = await Promise.race([rpcPromise, timeoutPromise]) as any;
-
-      if (error) throw error;
-
-      const newRole: Role = {
+      // Create optimistic role immediately
+      const tempId = `temp_${Date.now()}`;
+      const optimisticRole: Role = {
         ...roleData,
-        id: data.id,
+        id: tempId,
         candidatesList: [],
         candidates: 0,
-        createdAt: data.created_at.split('T')[0],
+        createdAt: new Date().toISOString().split('T')[0],
         status: 'active',
       };
 
-      setRoles(prev => [newRole, ...prev]);
+      setRoles(prev => [optimisticRole, ...prev]);
 
-      // Track analytics event
-      await trackEvent('role_created', {
-        role_id: data.id,
+      // Insert without awaiting select - just fire and refresh
+      const insertPromise = supabase
+        .from('roles')
+        .insert({
+          user_id: userId,
+          title: roleData.title,
+          department: roleData.department,
+          location: roleData.location,
+          employment_type: roleData.type,
+          salary_min,
+          salary_max,
+          salary_currency,
+          description: roleData.description,
+          is_active: true
+        });
+
+      // Add 5 second timeout for the insert
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout - please try again')), 5000)
+      );
+
+      const { error } = await Promise.race([insertPromise, timeoutPromise]) as any;
+
+      if (error) throw error;
+
+      // Refresh roles in background to get the real ID
+      setTimeout(() => refreshRoles(), 500);
+
+      // Track analytics event (non-blocking)
+      trackEvent('role_created', {
         title: roleData.title,
         department: roleData.department,
         employment_type: roleData.type
-      });
+      }).catch(() => {});
 
       toast({
         title: 'Role created',
         description: 'Role has been created successfully'
       });
 
-      return data.id;
+      return tempId;
     } catch (err: any) {
       toast({
         title: 'Error creating role',
