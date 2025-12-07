@@ -178,11 +178,11 @@ const BulkParse = () => {
     // Mark all files as processing
     setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const })));
 
-    // Track bulk parse started
-    await trackEvent('bulk_parse_started', {
+    // Track bulk parse started (non-blocking)
+    trackEvent('bulk_parse_started', {
       file_count: fileCount,
       role_id: selectedRole
-    });
+    }).catch(err => console.error('Analytics tracking failed:', err));
 
     try {
       // Call the batch parse API (no scoring)
@@ -266,14 +266,14 @@ const BulkParse = () => {
         await incrementParseUsage(successCount);
       }
 
-      // Track bulk parse completed
-      await trackEvent('bulk_parse_completed', {
+      // Track bulk parse completed (non-blocking)
+      trackEvent('bulk_parse_completed', {
         total_files: files.length,
         successful: successCount,
         failed: files.length - successCount,
         role_id: selectedRole,
         processing_time_ms: response.processing_time_ms
-      });
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       toast({
         title: "Bulk Parse Complete",

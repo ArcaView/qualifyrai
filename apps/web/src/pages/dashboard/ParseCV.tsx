@@ -170,16 +170,12 @@ const ParseCV = () => {
         console.error('Failed to increment usage:', usageError);
       }
 
-      // Track analytics event (don't block on this either)
-      try {
-        await trackEvent('cv_parsed', {
-          filename: file.name,
-          filesize: file.size,
-          role_id: selectedRole
-        });
-      } catch (analyticsError: any) {
-        console.error('Failed to track analytics:', analyticsError);
-      }
+      // Track analytics event (non-blocking)
+      trackEvent('cv_parsed', {
+        filename: file.name,
+        filesize: file.size,
+        role_id: selectedRole
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       // Adapt to actual API structure
       const parsedCandidate = parseResult.candidate || {};
@@ -327,13 +323,13 @@ const ParseCV = () => {
       // Increment usage after successful score
       await incrementScoreUsage(1);
 
-      // Track analytics event
-      await trackEvent('candidate_scored', {
+      // Track analytics event (non-blocking)
+      trackEvent('candidate_scored', {
         score: scoreResponse.overall_score,
         fit: scoreResponse.fit,
         mode: aiScoringEnabled ? 'llm' : 'baseline',
         request_id: result.request_id
-      });
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       toast({
         title: "Scoring Complete",

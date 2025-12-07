@@ -276,11 +276,11 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         role.id === id ? { ...role, ...updates } : role
       ));
 
-      // Track analytics event
-      await trackEvent('role_updated', {
+      // Track analytics event (non-blocking)
+      trackEvent('role_updated', {
         role_id: id,
         updated_fields: Object.keys(updates)
-      });
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       toast({
         title: 'Role updated',
@@ -311,10 +311,10 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setRoles(prev => prev.filter(role => role.id !== id));
 
-      // Track analytics event
-      await trackEvent('role_deleted', {
+      // Track analytics event (non-blocking)
+      trackEvent('role_deleted', {
         role_id: id
-      });
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       toast({
         title: 'Role deleted',
@@ -416,12 +416,12 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return role;
       }));
 
-      // Track analytics event
-      await trackEvent('candidate_added', {
+      // Track analytics event (non-blocking)
+      trackEvent('candidate_added', {
         role_id: roleId,
         candidate_id: data.id,
         candidate_name: candidate.name
-      });
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       toast({
         title: 'Candidate added',
@@ -796,13 +796,13 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setRoles(prev => [...prev, newRole]);
 
-      // Track analytics event
-      await trackEvent('role_created', {
+      // Track analytics event (non-blocking)
+      trackEvent('role_created', {
         role_id: data.id,
         title: roleData.title,
         department: roleData.department,
         employment_type: roleData.type
-      });
+      }).catch(err => console.error('Analytics tracking failed:', err));
 
       toast({
         title: 'Role created',
