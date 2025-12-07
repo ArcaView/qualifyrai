@@ -120,7 +120,7 @@ const BulkParse = () => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleCreateRole = () => {
+  const handleCreateRole = async () => {
     if (!newRoleTitle.trim()) return;
 
     const newRoleData = {
@@ -132,23 +132,23 @@ const BulkParse = () => {
       description: jobDescription || "Role description to be added",
     };
 
-    addRole(newRoleData);
+    try {
+      // Await role creation and get the new role ID
+      const newRoleId = await addRole(newRoleData);
 
-    // Find the newly added role (it will be the last one)
-    setTimeout(() => {
-      const latestRole = roles[roles.length - 1];
-      if (latestRole) {
-        setSelectedRole(latestRole.id);
-      }
-    }, 100);
+      // Select the newly created role
+      setSelectedRole(newRoleId);
 
-    setNewRoleTitle("");
-    setNewRoleDialogOpen(false);
+      setNewRoleTitle("");
+      setNewRoleDialogOpen(false);
 
-    toast({
-      title: "Role Created",
-      description: `${newRoleTitle} has been created successfully.`,
-    });
+      toast({
+        title: "Role Created",
+        description: `${newRoleTitle} has been created successfully.`,
+      });
+    } catch (error) {
+      // Error is already handled by addRole with toast
+    }
   };
 
   const handleBulkParse = async () => {
