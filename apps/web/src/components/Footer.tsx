@@ -18,11 +18,6 @@ export const Footer = () => {
                   Pricing
                 </Link>
               </li>
-              <li>
-                <Link to="/docs" className="text-muted-foreground hover:text-primary transition-colors">
-                  Documentation
-                </Link>
-              </li>
             </ul>
           </div>
 

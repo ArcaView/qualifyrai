@@ -1,17 +1,51 @@
 import jsPDF from 'jspdf';
 
+export interface InterviewSummary {
+  summary: string;
+  overall_score?: number;
+  strengths?: string[];
+  concerns?: string[];
+}
+
+export interface Interview {
+  id: string;
+  date: string;
+  interviewer: string;
+  notes: string;
+  type: 'phone_screen' | 'technical' | 'behavioral' | 'final' | 'other';
+  summary?: InterviewSummary;
+}
+
+export interface StatusHistoryEntry {
+  status: string;
+  changedAt: string;
+  note?: string;
+}
+
+export interface ScoreBreakdown {
+  skills?: number;
+  experience?: number;
+  prestige?: number;
+  education?: number;
+  stability?: number;
+}
+
 export interface Candidate {
   id: string;
   name: string;
   email: string;
   phone: string;
   score?: number;
+  score_breakdown?: ScoreBreakdown;
   fit?: string;
   status?: string;
   experience_years: number;
   skills: string[];
   appliedDate: string;
   fileName: string;
+  interviews?: Interview[];
+  statusHistory?: StatusHistoryEntry[];
+  summary?: string;
 }
 
 export interface RoleSummaryData {
@@ -40,21 +74,44 @@ export const generateCandidateSummaryPDF = (data: RoleSummaryData) => {
   };
 
   // Helper function to add wrapped text
-  const addWrappedText = (text: string, x: number, fontSize: number, maxWidth: number, fontStyle: 'normal' | 'bold' = 'normal') => {
+  const addWrappedText = (text: string, x: number, fontSize: number, maxWidth: number, fontStyle: 'normal' | 'bold' = 'normal', lineHeight: number = 5) => {
     doc.setFont('helvetica', fontStyle);
     doc.setFontSize(fontSize);
     const lines = doc.splitTextToSize(text, maxWidth);
     lines.forEach((line: string) => {
-      checkPageBreak(7);
+      checkPageBreak(lineHeight);
       doc.text(line, x, yPosition);
-      yPosition += fontSize * 0.5;
+      yPosition += lineHeight;
     });
+  };
+
+  // Helper to calculate combined score
+  const getCombinedScore = (candidate: Candidate): number => {
+    const cvScore = candidate.score || 0;
+    const interviewScores = (candidate.interviews || [])
+      .filter(i => i.summary?.overall_score)
+      .map(i => (i.summary!.overall_score! / 5) * 100);
+    
+    if (interviewScores.length === 0) return cvScore;
+    const avgInterviewScore = interviewScores.reduce((sum, score) => sum + score, 0) / interviewScores.length;
+    return (cvScore * 0.6) + (avgInterviewScore * 0.4);
+  };
+
+  // Helper to get interview type label
+  const getInterviewTypeLabel = (type: Interview['type']): string => {
+    switch (type) {
+      case 'phone_screen': return 'Phone Screen';
+      case 'technical': return 'Technical';
+      case 'behavioral': return 'Behavioral';
+      case 'final': return 'Final';
+      default: return 'Interview';
+    }
   };
 
   // Header
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text('Candidate Summary Report', margin, yPosition);
+  doc.text('Hiring Decision Report', margin, yPosition);
   yPosition += 10;
 
   doc.setFontSize(16);
@@ -81,249 +138,365 @@ export const generateCandidateSummaryPDF = (data: RoleSummaryData) => {
   doc.text('Executive Summary', margin, yPosition);
   yPosition += 8;
 
-  const avgScore = candidates.length > 0
+  const avgCvScore = candidates.length > 0
     ? Math.round(candidates.reduce((sum, c) => sum + (c.score || 0), 0) / candidates.length)
     : 0;
-  const topCandidates = candidates.filter(c => c.score && c.score >= 85);
-  const excellentFit = candidates.filter(c => c.fit === 'excellent');
+  
+  const candidatesWithInterviews = candidates.filter(c => c.interviews && c.interviews.length > 0);
+  const candidatesWithScores = candidates.filter(c => c.interviews?.some(i => i.summary?.overall_score));
+  const avgInterviewScore = candidatesWithScores.length > 0
+    ? candidatesWithScores.reduce((sum, c) => {
+        const scores = c.interviews!.filter(i => i.summary?.overall_score).map(i => i.summary!.overall_score!);
+        return sum + (scores.reduce((a, b) => a + b, 0) / scores.length);
+      }, 0) / candidatesWithScores.length
+    : 0;
+
+  const topCandidates = [...candidates]
+    .map(c => ({ ...c, combinedScore: getCombinedScore(c) }))
+    .sort((a, b) => b.combinedScore - a.combinedScore)
+    .slice(0, 3);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Average Match Score: ${avgScore}%`, margin, yPosition);
+  doc.text(`Average CV Match Score: ${avgCvScore}%`, margin, yPosition);
   yPosition += 6;
-  doc.text(`Top Candidates (>=85%): ${topCandidates.length}`, margin, yPosition);
-  yPosition += 6;
-  doc.text(`Excellent Fit: ${excellentFit.length}`, margin, yPosition);
-  yPosition += 12;
-
-  // Skill Distribution Section
-  checkPageBreak(40);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Top Skills', margin, yPosition);
-  yPosition += 8;
-
-  const skillCounts: Record<string, number> = {};
-  candidates.forEach(c => c.skills.forEach(skill => {
-    skillCounts[skill] = (skillCounts[skill] || 0) + 1;
-  }));
-
-  const topSkills = Object.entries(skillCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  topSkills.forEach(([skill, count]) => {
-    checkPageBreak(6);
-    doc.text(`• ${skill}`, margin + 5, yPosition);
-    doc.text(`${count} candidate${count > 1 ? 's' : ''}`, pageWidth - margin - 30, yPosition);
+  
+  if (candidatesWithScores.length > 0) {
+    doc.text(`Candidates Interviewed: ${candidatesWithInterviews.length} / ${candidates.length}`, margin, yPosition);
     yPosition += 6;
-  });
+    doc.text(`Average Interview Score: ${avgInterviewScore.toFixed(1)}/5.0`, margin, yPosition);
+    yPosition += 6;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Top 3 Candidates: ${topCandidates.map((c, i) => `${i + 1}. ${c.name} (${c.combinedScore.toFixed(0)}%)`).join(', ')}`, margin, yPosition);
   yPosition += 8;
 
-  // Top Candidates Section
-  if (topCandidates.length > 0) {
+  // Interview Performance Overview
+  if (candidatesWithScores.length > 0) {
     checkPageBreak(40);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('Top Candidates', margin, yPosition);
+    doc.text('Interview Performance Overview', margin, yPosition);
     yPosition += 8;
 
-    topCandidates.forEach((candidate, index) => {
-      checkPageBreak(30);
+    const interviewStats = {
+      excellent: candidatesWithScores.filter(c => 
+        c.interviews!.some(i => (i.summary?.overall_score || 0) >= 4.5)
+      ).length,
+      good: candidatesWithScores.filter(c => 
+        c.interviews!.some(i => {
+          const score = i.summary?.overall_score || 0;
+          return score >= 3.5 && score < 4.5;
+        })
+      ).length,
+      needsReview: candidatesWithScores.filter(c => 
+        c.interviews!.some(i => (i.summary?.overall_score || 0) < 3.5)
+      ).length,
+    };
 
-      // Candidate header with score
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${index + 1}. ${candidate.name}`, margin, yPosition);
-
-      // Score badge
-      doc.setFillColor(59, 130, 246); // Blue color
-      doc.roundedRect(pageWidth - margin - 25, yPosition - 4, 25, 8, 2, 2, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.text(`${candidate.score}%`, pageWidth - margin - 17, yPosition + 1);
-      doc.setTextColor(0, 0, 0);
-      yPosition += 8;
-
-      // Candidate details
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Email: ${candidate.email}`, margin + 5, yPosition);
-      yPosition += 5;
-      doc.text(`Phone: ${candidate.phone}`, margin + 5, yPosition);
-      yPosition += 5;
-      doc.text(`Experience: ${candidate.experience_years} years`, margin + 5, yPosition);
-      yPosition += 5;
-      doc.text(`Fit: ${candidate.fit || 'N/A'}`, margin + 5, yPosition);
-      if (candidate.status) {
-        doc.text(`Status: ${candidate.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`, pageWidth - margin - 60, yPosition);
-      }
-      yPosition += 5;
-
-      // Skills (wrapped)
-      const skillsText = `Skills: ${candidate.skills.slice(0, 8).join(', ')}${candidate.skills.length > 8 ? '...' : ''}`;
-      const skillLines = doc.splitTextToSize(skillsText, contentWidth - 10);
-      skillLines.forEach((line: string) => {
-        checkPageBreak(5);
-        doc.text(line, margin + 5, yPosition);
-        yPosition += 5;
-      });
-
-      yPosition += 6;
-    });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Excellent Interviews (>=4.5/5): ${interviewStats.excellent} candidates`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Good Interviews (3.5-4.4/5): ${interviewStats.good} candidates`, margin, yPosition);
+    yPosition += 6;
+    doc.text(`Needs Review (<3.5/5): ${interviewStats.needsReview} candidates`, margin, yPosition);
+    yPosition += 10;
   }
 
-  // All Candidates Section
-  checkPageBreak(40);
+  // Detailed Candidate Profiles
+  checkPageBreak(50);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('All Candidates', margin, yPosition);
+  doc.text('Candidate Profiles', margin, yPosition);
   yPosition += 8;
 
-  // Sort candidates by score
-  const sortedCandidates = [...candidates].sort((a, b) => (b.score || 0) - (a.score || 0));
+  // Sort candidates by combined score
+  const sortedCandidates = [...candidates]
+    .map(c => ({ ...c, combinedScore: getCombinedScore(c) }))
+    .sort((a, b) => b.combinedScore - a.combinedScore);
 
   sortedCandidates.forEach((candidate, index) => {
-    checkPageBreak(25);
-
-    // Candidate name and rank
-    doc.setFontSize(11);
+    checkPageBreak(60);
+    
+    // Candidate header with ranking
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text(`${index + 1}. ${candidate.name}`, margin, yPosition);
-
-    // Score
+    
+    // Scores
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const scoreX = pageWidth - margin - 80;
+    doc.text('Combined:', scoreX, yPosition);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${candidate.combinedScore.toFixed(0)}%`, scoreX + 25, yPosition);
+    
     if (candidate.score) {
       doc.setFont('helvetica', 'normal');
-      doc.text(`${candidate.score}%`, pageWidth - margin - 20, yPosition);
+      doc.text(`CV: ${candidate.score}%`, scoreX + 45, yPosition);
     }
-    yPosition += 6;
+    yPosition += 8;
 
-    // Details in two columns
+    // Contact info and basic details
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${candidate.email}`, margin + 5, yPosition);
-    doc.text(`${candidate.experience_years} years exp`, pageWidth - margin - 45, yPosition);
+    doc.text(`Email: ${candidate.email}`, margin + 5, yPosition);
+    doc.text(`Phone: ${candidate.phone}`, margin + 90, yPosition);
     yPosition += 5;
-    doc.text(`${candidate.phone}`, margin + 5, yPosition);
+    
+    doc.text(`Experience: ${candidate.experience_years} years`, margin + 5, yPosition);
     if (candidate.fit) {
-      doc.text(`Fit: ${candidate.fit}`, pageWidth - margin - 45, yPosition);
+      doc.text(`Fit: ${candidate.fit}`, margin + 90, yPosition);
+    }
+    if (candidate.status) {
+      const statusText = candidate.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      doc.text(`Status: ${statusText}`, pageWidth - margin - 50, yPosition);
     }
     yPosition += 5;
-    if (candidate.status) {
-      doc.text(`Status: ${candidate.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`, margin + 5, yPosition);
+
+    // Score breakdown if available
+    if (candidate.score_breakdown) {
+      const breakdown = candidate.score_breakdown;
+      const breakdownText = [
+        breakdown.skills && `Skills: ${breakdown.skills}`,
+        breakdown.experience && `Exp: ${breakdown.experience}`,
+        breakdown.education && `Edu: ${breakdown.education}`,
+      ].filter(Boolean).join(' • ');
+      if (breakdownText) {
+        doc.text(breakdownText, margin + 5, yPosition);
+        yPosition += 5;
+      }
+    }
+
+    // Top skills
+    const topSkills = candidate.skills.slice(0, 8).join(', ');
+    const skillsText = candidate.skills.length > 8 
+      ? `Skills: ${topSkills}... (+${candidate.skills.length - 8} more)`
+      : `Skills: ${topSkills}`;
+    const skillLines = doc.splitTextToSize(skillsText, contentWidth - 10);
+    skillLines.forEach((line: string) => {
+      doc.text(line, margin + 5, yPosition);
+      yPosition += 4.5;
+    });
+    yPosition += 3;
+
+    // Interview Results
+    if (candidate.interviews && candidate.interviews.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('Interview Results:', margin + 5, yPosition);
+      yPosition += 6;
+
+      candidate.interviews.forEach((interview) => {
+        checkPageBreak(30);
+        const interviewDate = new Date(interview.date).toLocaleDateString();
+        const interviewType = getInterviewTypeLabel(interview.type);
+        
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`• ${interviewType} (${interviewDate}) - ${interview.interviewer}`, margin + 10, yPosition);
+        
+        if (interview.summary?.overall_score) {
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Score: ${interview.summary.overall_score.toFixed(1)}/5.0`, pageWidth - margin - 30, yPosition);
+        }
+        yPosition += 5;
+
+        // Interview summary
+        if (interview.summary?.summary) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          const summaryLines = doc.splitTextToSize(interview.summary.summary, contentWidth - 15);
+          summaryLines.slice(0, 2).forEach((line: string) => {
+            doc.text(line, margin + 15, yPosition);
+            yPosition += 4;
+          });
+          if (summaryLines.length > 2) {
+            doc.text('...', margin + 15, yPosition);
+            yPosition += 4;
+          }
+        }
+
+        // Strengths and concerns
+        if (interview.summary?.strengths && interview.summary.strengths.length > 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.text('Strengths:', margin + 15, yPosition);
+          yPosition += 4;
+          doc.setFont('helvetica', 'normal');
+          interview.summary.strengths.slice(0, 2).forEach((strength) => {
+            const strengthLines = doc.splitTextToSize(`  • ${strength}`, contentWidth - 20);
+            strengthLines.forEach((line: string) => {
+              doc.text(line, margin + 15, yPosition);
+              yPosition += 3.5;
+            });
+          });
+        }
+
+        if (interview.summary?.concerns && interview.summary.concerns.length > 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.text('Concerns:', margin + 15, yPosition);
+          yPosition += 4;
+          doc.setFont('helvetica', 'normal');
+          interview.summary.concerns.slice(0, 2).forEach((concern) => {
+            const concernLines = doc.splitTextToSize(`  • ${concern}`, contentWidth - 20);
+            concernLines.forEach((line: string) => {
+              doc.text(line, margin + 15, yPosition);
+              yPosition += 3.5;
+            });
+          });
+        }
+        yPosition += 3;
+      });
+    } else {
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text('No interviews conducted yet', margin + 5, yPosition);
+      doc.setTextColor(0, 0, 0);
       yPosition += 5;
     }
 
-    // Skills (limited to fit on one or two lines)
-    const limitedSkills = candidate.skills.slice(0, 6).join(', ');
-    const skillText = `Skills: ${limitedSkills}${candidate.skills.length > 6 ? `, +${candidate.skills.length - 6} more` : ''}`;
-    const lines = doc.splitTextToSize(skillText, contentWidth - 10);
-    lines.forEach((line: string, i: number) => {
-      if (i < 2) { // Limit to 2 lines
-        checkPageBreak(5);
-        doc.text(line, margin + 5, yPosition);
-        yPosition += 5;
-      }
-    });
+    // Status History (recent entries)
+    if (candidate.statusHistory && candidate.statusHistory.length > 0) {
+      const recentHistory = [...candidate.statusHistory].reverse().slice(0, 3);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+      doc.text('Recent Status:', margin + 5, yPosition);
+      yPosition += 4.5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      recentHistory.forEach((entry) => {
+        const date = new Date(entry.changedAt).toLocaleDateString();
+        const statusText = entry.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const historyText = entry.note 
+          ? `${date}: ${statusText} - ${entry.note}`
+          : `${date}: ${statusText}`;
+        const historyLines = doc.splitTextToSize(`  • ${historyText}`, contentWidth - 15);
+        historyLines.forEach((line: string) => {
+          doc.text(line, margin + 15, yPosition);
+          yPosition += 3.5;
+        });
+      });
+    }
 
-    yPosition += 6;
+    yPosition += 5;
+    
+    // Divider line
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.3);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 8;
   });
 
-  // Recommendations Section
-  checkPageBreak(60);
+  // Hiring Recommendations
+  checkPageBreak(80);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
   doc.text('Hiring Recommendations', margin, yPosition);
   yPosition += 8;
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-
-  // Build comprehensive recommendations
   const recommendations: string[] = [];
 
   // Top candidates recommendation
   if (topCandidates.length > 0) {
-    recommendations.push(
-      `IMMEDIATE ACTION: Schedule interviews with the top ${Math.min(3, topCandidates.length)} candidates scoring above 85%. These candidates (${topCandidates.slice(0, 3).map(c => c.name).join(', ')}) demonstrate exceptional qualifications and should be contacted within 24-48 hours.`
-    );
+    const topCandidate = topCandidates[0];
+    const hasInterviews = topCandidate.interviews && topCandidate.interviews.length > 0;
+    const hasScores = topCandidate.interviews?.some(i => i.summary?.overall_score);
+    
+    if (hasScores) {
+      const avgScore = topCandidate.interviews!
+        .filter(i => i.summary?.overall_score)
+        .reduce((sum, i) => sum + (i.summary!.overall_score!), 0) / 
+        topCandidate.interviews!.filter(i => i.summary?.overall_score).length;
+      recommendations.push(
+        `PRIORITY HIRE: ${topCandidate.name} ranks #1 with a combined score of ${topCandidate.combinedScore.toFixed(0)}% (CV: ${topCandidate.score}%, Interview avg: ${avgScore.toFixed(1)}/5.0). Strong recommendation to extend offer.`
+      );
+    } else if (hasInterviews) {
+      recommendations.push(
+        `PRIORITY INTERVIEW: ${topCandidate.name} ranks #1 with ${topCandidate.combinedScore.toFixed(0)}% combined score. Schedule final interview to complete assessment.`
+      );
+    } else {
+      recommendations.push(
+        `PRIORITY INTERVIEW: ${topCandidate.name} has the highest CV match score (${topCandidate.score}%). Schedule interview immediately.`
+      );
+    }
   }
 
-  // Excellent fit recommendation
-  if (excellentFit.length > 0) {
-    recommendations.push(
-      `PRIORITY CANDIDATES: ${excellentFit.length} candidate${excellentFit.length !== 1 ? 's' : ''} show excellent cultural and skill fit (${excellentFit.slice(0, 3).map(c => c.name).join(', ')}${excellentFit.length > 3 ? ', and others' : ''}). These should be fast-tracked through your hiring pipeline.`
-    );
-  }
-
-  // Skill alignment
-  if (topSkills.length >= 3) {
-    recommendations.push(
-      `SKILL FOCUS: Prioritize candidates with proven expertise in ${topSkills.slice(0, 3).map(([s]) => s).join(', ')}. These skills are most common among your top-performing candidates and align well with role requirements.`
-    );
-  }
-
-  // Experience-based recommendation
-  const avgExperience = Math.round(
-    sortedCandidates.reduce((sum, c) => sum + c.experience_years, 0) / sortedCandidates.length
+  // Interview-based recommendations
+  const excellentInterviews = candidates.filter(c => 
+    c.interviews?.some(i => (i.summary?.overall_score || 0) >= 4.5)
   );
-  const experiencedCandidates = sortedCandidates.filter(c => c.experience_years >= avgExperience + 2);
-  if (experiencedCandidates.length > 0) {
+  if (excellentInterviews.length > 0) {
     recommendations.push(
-      `EXPERIENCE DEPTH: ${experiencedCandidates.length} candidate${experiencedCandidates.length !== 1 ? 's have' : ' has'} significantly more experience than average (${avgExperience} years). Consider ${experiencedCandidates.slice(0, 2).map(c => c.name).join(' and ')} for senior or leadership positions.`
+      `STRONG CANDIDATES: ${excellentInterviews.length} candidate${excellentInterviews.length !== 1 ? 's' : ''} (${excellentInterviews.map(c => c.name).join(', ')}) scored ≥4.5/5.0 in interviews. Consider for final round or offer.`
     );
   }
 
-  // Diversity of skills
-  const totalUniqueSkills = Object.keys(skillCounts).length;
-  if (totalUniqueSkills > 15) {
-    recommendations.push(
-      `SKILL DIVERSITY: Candidates present ${totalUniqueSkills} unique skills across the pool. This diversity enables team composition flexibility - consider pairing complementary skill sets during team building.`
-    );
+  // Interview gaps
+  const noInterviews = candidates.filter(c => !c.interviews || c.interviews.length === 0);
+  if (noInterviews.length > 0 && topCandidates.some(c => !c.interviews || c.interviews.length === 0)) {
+    const topNoInterview = topCandidates.find(c => !c.interviews || c.interviews.length === 0);
+    if (topNoInterview) {
+      recommendations.push(
+        `URGENT ACTION: ${topNoInterview.name} ranks ${sortedCandidates.indexOf(topNoInterview) + 1} but hasn't been interviewed. Schedule interview within 48 hours to prevent losing this candidate.`
+      );
+    }
   }
 
-  // Score distribution insights
-  const midRangeCandidates = sortedCandidates.filter(c => c.score && c.score >= 70 && c.score < 85);
-  if (midRangeCandidates.length > 0) {
-    recommendations.push(
-      `SECONDARY POOL: ${midRangeCandidates.length} candidate${midRangeCandidates.length !== 1 ? 's score' : ' scores'} between 70-84%. While not top-tier, these candidates may excel in roles with adjusted requirements or through targeted training programs.`
-    );
-  }
-
-  // Timeline recommendation
-  if (topCandidates.length >= 2) {
-    recommendations.push(
-      `HIRING VELOCITY: With ${topCandidates.length} strong candidates available, aim to complete initial interviews within the next 5-7 business days to maintain candidate engagement and prevent talent loss to competitors.`
-    );
-  }
-
-  // General best practice
-  recommendations.push(
-    `NEXT STEPS: (1) Send personalized outreach emails to top candidates within 24 hours, (2) Schedule phone screens for candidates scoring 85+, (3) Prepare role-specific technical assessments, (4) Establish a feedback loop with hiring managers to refine scoring criteria.`
+  // Concerns-based recommendations
+  const candidatesWithConcerns = candidates.filter(c => 
+    c.interviews?.some(i => i.summary?.concerns && i.summary.concerns.length > 0)
   );
+  if (candidatesWithConcerns.length > 0) {
+    recommendations.push(
+      `REVIEW REQUIRED: ${candidatesWithConcerns.length} candidate${candidatesWithConcerns.length !== 1 ? 's have' : ' has'} flagged concerns in interview summaries. Review detailed feedback before proceeding.`
+    );
+  }
+
+  // Status-based recommendations
+  const interviewing = candidates.filter(c => c.status === 'interviewing');
+  const shortlisted = candidates.filter(c => c.status === 'shortlisted');
+  if (interviewing.length > 0) {
+    recommendations.push(
+      `IN PROGRESS: ${interviewing.length} candidate${interviewing.length !== 1 ? 's are' : ' is'} currently in interview process. Ensure timely feedback and next steps.`
+    );
+  }
+  if (shortlisted.length > 0) {
+    recommendations.push(
+      `SHORTLIST: ${shortlisted.length} candidate${shortlisted.length !== 1 ? 's have' : ' has'} been shortlisted. Prepare offer packages for top candidates.`
+    );
+  }
+
+  // General best practices
+  if (candidatesWithScores.length > 0) {
+    recommendations.push(
+      `DECISION SUPPORT: Use interview scores and summaries to make data-driven hiring decisions. Prioritize candidates with both strong CV match and interview performance.`
+    );
+  }
 
   recommendations.forEach((rec, idx) => {
     checkPageBreak(15);
     const lines = doc.splitTextToSize(`${idx + 1}. ${rec}`, contentWidth - 10);
     lines.forEach((line: string, lineIdx: number) => {
-      if (lineIdx === 0) {
-        doc.setFont('helvetica', 'bold');
-      } else {
-        doc.setFont('helvetica', 'normal');
-      }
+      doc.setFont(lineIdx === 0 ? 'helvetica' : 'helvetica', lineIdx === 0 ? 'bold' : 'normal');
       doc.text(line, margin + 5, yPosition);
       yPosition += 5;
     });
-    yPosition += 3; // Extra spacing between recommendations
+    yPosition += 3;
   });
 
   // Footer on last page
   yPosition = pageHeight - margin;
   doc.setFontSize(9);
   doc.setTextColor(128, 128, 128);
-  doc.text('Qualifyr.AI - Automated CV Parsing & Scoring', margin, yPosition);
+  doc.text('Qualifyr.AI - Hiring Decision Support Report', margin, yPosition);
   doc.text(`Page ${doc.getNumberOfPages()}`, pageWidth - margin - 20, yPosition);
 
   // Add page numbers to all pages
@@ -336,7 +509,7 @@ export const generateCandidateSummaryPDF = (data: RoleSummaryData) => {
   }
 
   // Generate filename
-  const filename = `${roleTitle.replace(/\s+/g, '-').toLowerCase()}-summary-${Date.now()}.pdf`;
+  const filename = `${roleTitle.replace(/\s+/g, '-').toLowerCase()}-hiring-report-${Date.now()}.pdf`;
 
   // Download the PDF
   doc.save(filename);

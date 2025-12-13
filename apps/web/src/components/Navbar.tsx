@@ -26,17 +26,16 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center">
-            <span className="font-bold text-3xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-              Qualifyr.AI
-            </span>
-          </Link>
+    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border" style={{ width: '100vw', position: 'relative', left: '50%', right: '50%', marginLeft: '-50vw', marginRight: '-50vw' }}>
+      <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+        <Link to="/" className="flex items-center">
+          <span className="font-bold text-3xl bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+            Qualifyr.AI
+          </span>
+        </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center space-x-8">
             <Link to="/" className="text-foreground hover:text-primary transition-colors">
               Home
             </Link>
@@ -93,100 +92,99 @@ export const Navbar = () => {
                 </Button>
               </div>
             )}
-          </div>
-
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
         </div>
 
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 space-y-4 border-t border-border">
-            <Link
-              to="/"
-              className="block py-2 text-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link
-              to="/features"
-              className="block py-2 text-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Features
-            </Link>
-            <Link
-              to="/pricing"
-              className="block py-2 text-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Pricing
-            </Link>
-            <Link
-              to="/feature-requests"
-              className="block py-2 text-foreground hover:text-primary transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Feature Requests
-            </Link>
-            {isAuthenticated ? (
-              <>
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium px-2 pb-2">
-                    {user?.firstName} {user?.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground px-2 pb-4">{user?.email}</p>
-                  <Button asChild variant="outline" size="sm" className="w-full mb-2">
-                    <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
-                      Dashboard
+        {/* Mobile Menu Button */}
+        <button
+          className="md:hidden"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Mobile Navigation */}
+      {isMenuOpen && (
+        <div className="md:hidden py-4 space-y-4 border-t border-border px-4 sm:px-6 lg:px-8">
+          <Link
+            to="/"
+            className="block py-2 text-foreground hover:text-primary transition-colors"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Home
+          </Link>
+          <Link
+            to="/features"
+            className="block py-2 text-foreground hover:text-primary transition-colors"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Features
+          </Link>
+          <Link
+            to="/pricing"
+            className="block py-2 text-foreground hover:text-primary transition-colors"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Pricing
+          </Link>
+          <Link
+            to="/feature-requests"
+            className="block py-2 text-foreground hover:text-primary transition-colors"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Feature Requests
+          </Link>
+          {isAuthenticated ? (
+            <>
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium px-2 pb-2">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                <p className="text-xs text-muted-foreground px-2 pb-4">{user?.email}</p>
+                <Button asChild variant="outline" size="sm" className="w-full mb-2">
+                  <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                    Dashboard
+                  </Link>
+                </Button>
+                {isAdmin && (
+                  <Button asChild variant="outline" size="sm" className="w-full mb-2 text-primary border-primary">
+                    <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
+                      <Shield className="w-4 h-4 mr-2" />
+                      Admin Dashboard
                     </Link>
                   </Button>
-                  {isAdmin && (
-                    <Button asChild variant="outline" size="sm" className="w-full mb-2 text-primary border-primary">
-                      <Link to="/admin" onClick={() => setIsMenuOpen(false)}>
-                        <Shield className="w-4 h-4 mr-2" />
-                        Admin Dashboard
-                      </Link>
-                    </Button>
-                  )}
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      handleLogout();
-                      setIsMenuOpen(false);
-                    }}
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Log Out
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <Button asChild variant="outline" size="sm" className="w-full">
-                  <Link to="/auth?tab=login" onClick={() => setIsMenuOpen(false)}>
-                    Log In
-                  </Link>
+                )}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Log Out
                 </Button>
-                <Button asChild variant="default" size="sm" className="w-full">
-                  <Link to="/auth?tab=signup" onClick={() => setIsMenuOpen(false)}>
-                    Sign Up
-                  </Link>
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <Button asChild variant="outline" size="sm" className="w-full">
+                <Link to="/auth?tab=login" onClick={() => setIsMenuOpen(false)}>
+                  Log In
+                </Link>
+              </Button>
+              <Button asChild variant="default" size="sm" className="w-full">
+                <Link to="/auth?tab=signup" onClick={() => setIsMenuOpen(false)}>
+                  Sign Up
+                </Link>
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </nav>
   );
 };

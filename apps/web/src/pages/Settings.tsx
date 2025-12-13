@@ -6,27 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { User, Key, Shield, Eye, EyeOff, Copy, Trash2 } from "lucide-react";
+import { User, Shield } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/lib/supabase";
-import { generateApiKey, fetchApiKeys, deleteApiKey, type ApiKey } from "@/lib/api/api-keys";
 
 const Settings = () => {
   const { toast } = useToast();
   const { user, updateProfile } = useUser();
-
-  // API Keys state
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [isLoadingKeys, setIsLoadingKeys] = useState(true);
-  const [isGeneratingKey, setIsGeneratingKey] = useState(false);
-  const [showKeyDialog, setShowKeyDialog] = useState(false);
-  const [newKeyName, setNewKeyName] = useState("");
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [keyToDelete, setKeyToDelete] = useState<ApiKey | null>(null);
-  const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
-  const [showGeneratedKeyDialog, setShowGeneratedKeyDialog] = useState(false);
 
   // Password change state
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -37,20 +25,6 @@ const Settings = () => {
   });
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-
-  // Fetch API keys from database on mount
-  useEffect(() => {
-    const loadApiKeys = async () => {
-      setIsLoadingKeys(true);
-      const keys = await fetchApiKeys();
-      setApiKeys(keys);
-      setIsLoadingKeys(false);
-    };
-
-    if (user) {
-      loadApiKeys();
-    }
-  }, [user]);
 
   // Profile state - initialize from user context
   const [profileData, setProfileData] = useState({
@@ -153,101 +127,6 @@ const Settings = () => {
       });
     } finally {
       setIsProfileLoading(false);
-    }
-  };
-
-  // API Key functions
-  const copyToClipboard = (text: string, keyName: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied!",
-      description: `${keyName} copied to clipboard`,
-    });
-  };
-
-  const generateNewApiKey = async (keyName: string) => {
-    setIsGeneratingKey(true);
-
-    try {
-      const result = await generateApiKey(keyName);
-
-      if (!result.success || !result.apiKey || !result.keyData) {
-        throw new Error(result.error || "Failed to generate API key");
-      }
-
-      // Add new key to list
-      setApiKeys(prev => [...prev, result.keyData!]);
-
-      // Store the plain key to show it once
-      setGeneratedApiKey(result.apiKey);
-      setShowGeneratedKeyDialog(true);
-
-      toast({
-        title: "API Key Generated",
-        description: "Your new API key has been created. Make sure to copy it now - it will not be shown again.",
-      });
-
-      setShowKeyDialog(false);
-      setNewKeyName("");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate API key. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingKey(false);
-    }
-  };
-
-  const handleGenerateKeyClick = () => {
-    setNewKeyName(`API Key ${apiKeys.length + 1}`);
-    setShowKeyDialog(true);
-  };
-
-  const handleConfirmGenerateKey = () => {
-    if (!newKeyName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a name for the API key.",
-        variant: "destructive",
-      });
-      return;
-    }
-    generateNewApiKey(newKeyName);
-  };
-
-  const handleDeleteKeyClick = (key: ApiKey) => {
-    setKeyToDelete(key);
-    setShowDeleteDialog(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!keyToDelete) return;
-
-    try {
-      const success = await deleteApiKey(keyToDelete.id);
-
-      if (!success) {
-        throw new Error("Failed to delete API key");
-      }
-
-      // Remove from local state
-      setApiKeys(prev => prev.filter(key => key.id !== keyToDelete.id));
-
-      toast({
-        title: "API Key Deleted",
-        description: `${keyToDelete.name} has been permanently deleted.`,
-      });
-
-      setShowDeleteDialog(false);
-      setKeyToDelete(null);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete API key",
-        variant: "destructive",
-      });
     }
   };
 
@@ -357,24 +236,6 @@ const Settings = () => {
     }
   };
 
-  const maskApiKey = (keyPrefix: string) => {
-    // keyPrefix is like "qfy_live_abc", show it with dots
-    return `${keyPrefix}••••••••••••••••••••`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const handleCloseGeneratedKeyDialog = () => {
-    setShowGeneratedKeyDialog(false);
-    setGeneratedApiKey(null);
-  };
-
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -386,14 +247,10 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:w-auto">
+            <TabsList className="grid w-full grid-cols-2 lg:w-auto">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Profile</span>
-              </TabsTrigger>
-              <TabsTrigger value="api" className="flex items-center gap-2">
-                <Key className="h-4 w-4" />
-                <span className="hidden sm:inline">API Keys</span>
               </TabsTrigger>
               <TabsTrigger value="security" className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
@@ -461,76 +318,6 @@ const Settings = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="api" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>API Keys</CardTitle>
-                  <CardDescription>
-                    Manage your API keys for accessing the Qualifyr.AI API
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {isLoadingKeys ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      Loading API keys...
-                    </div>
-                  ) : apiKeys.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No API keys yet. Generate one to get started.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {apiKeys.map((apiKey) => {
-                        return (
-                          <div key={apiKey.id} className="flex items-center justify-between p-4 border rounded-lg">
-                            <div className="flex-1 min-w-0 mr-4">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="font-semibold">{apiKey.name}</p>
-                                <span className="text-xs text-muted-foreground">
-                                  Created {formatDate(apiKey.created_at)}
-                                </span>
-                                {!apiKey.is_active && (
-                                  <span className="text-xs px-2 py-1 bg-destructive/10 text-destructive rounded">
-                                    Inactive
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm text-muted-foreground font-mono truncate">
-                                  {maskApiKey(apiKey.key_prefix)}
-                                </p>
-                                <span className="text-xs text-muted-foreground">
-                                  (Only prefix shown)
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleDeleteKeyClick(apiKey)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <Separator />
-                  <Button
-                    variant="outline"
-                    onClick={handleGenerateKeyClick}
-                    disabled={isGeneratingKey || isLoadingKeys}
-                  >
-                    Generate New API Key
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             <TabsContent value="security" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -565,96 +352,6 @@ const Settings = () => {
               </Card>
             </TabsContent>
         </Tabs>
-
-        {/* Dialog for naming new API key */}
-        <Dialog open={showKeyDialog} onOpenChange={setShowKeyDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New API Key</DialogTitle>
-              <DialogDescription>
-                Enter a name for your new API key. This will help you identify it later.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="keyName">API Key Name</Label>
-                <Input
-                  id="keyName"
-                  placeholder="e.g., Production Key, Test Key"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleConfirmGenerateKey();
-                    }
-                  }}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowKeyDialog(false)}
-                disabled={isGeneratingKey}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirmGenerateKey}
-                disabled={isGeneratingKey}
-              >
-                {isGeneratingKey ? "Generating..." : "Generate Key"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog for deleting API key with warning */}
-        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-destructive">Delete API Key</DialogTitle>
-              <DialogDescription>
-                This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-                <p className="text-sm font-semibold text-destructive mb-2">
-                  ⚠️ Warning: This action is permanent
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Deleting <span className="font-semibold">{keyToDelete?.name}</span> will immediately revoke access for any applications using this API key. This cannot be undone.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <span className="font-semibold">Key:</span> <span className="font-mono text-muted-foreground">{keyToDelete && maskApiKey(keyToDelete.key_prefix)}</span>
-                </p>
-                <p className="text-sm">
-                  <span className="font-semibold">Created:</span> <span className="text-muted-foreground">{keyToDelete && formatDate(keyToDelete.created_at)}</span>
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowDeleteDialog(false);
-                  setKeyToDelete(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleConfirmDelete}
-              >
-                Delete API Key
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Dialog for changing password */}
         <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
@@ -746,58 +443,6 @@ const Settings = () => {
                 disabled={isChangingPassword}
               >
                 {isChangingPassword ? "Updating..." : "Update Password"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog for showing the generated API key (shown only once) */}
-        <Dialog open={showGeneratedKeyDialog} onOpenChange={setShowGeneratedKeyDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>🎉 API Key Generated Successfully</DialogTitle>
-              <DialogDescription>
-                Make sure to copy your API key now. You won't be able to see it again!
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="rounded-lg border-2 border-primary bg-primary/5 p-4">
-                <p className="text-sm font-semibold mb-2">Your API Key:</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-sm font-mono bg-background p-3 rounded border break-all">
-                    {generatedApiKey}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      if (generatedApiKey) {
-                        copyToClipboard(generatedApiKey, "API Key");
-                      }
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-3">
-                <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-500 mb-1">
-                  ⚠️ Important Security Notice
-                </p>
-                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                  <li>This key will only be shown once</li>
-                  <li>Store it securely (e.g., password manager, environment variables)</li>
-                  <li>Never commit it to version control</li>
-                  <li>If you lose it, you'll need to generate a new key</li>
-                </ul>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={handleCloseGeneratedKeyDialog}
-                variant="default"
-              >
-                I've Saved My API Key
               </Button>
             </DialogFooter>
           </DialogContent>

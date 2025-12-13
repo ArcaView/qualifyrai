@@ -7,12 +7,11 @@ import {
   XCircle,
   Clock,
   RefreshCw,
-  Activity,
   Zap,
-  Database,
-  Cloud,
+  Globe,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 interface ServiceStatus {
   name: string;
@@ -26,28 +25,16 @@ interface ServiceStatus {
 const Status = () => {
   const [services, setServices] = useState<ServiceStatus[]>([
     {
-      name: 'ParseScore API',
+      name: 'AI Scoring',
       status: 'checking',
-      description: 'CV parsing and scoring engine',
-      icon: <Activity className="w-5 h-5" />,
-    },
-    {
-      name: 'AI Scoring (OpenAI)',
-      status: 'checking',
-      description: 'AI-powered candidate scoring',
+      description: 'AI-powered candidate scoring service',
       icon: <Zap className="w-5 h-5" />,
     },
     {
-      name: 'Database',
+      name: 'Site',
       status: 'checking',
-      description: 'Supabase database and authentication',
-      icon: <Database className="w-5 h-5" />,
-    },
-    {
-      name: 'File Storage',
-      status: 'checking',
-      description: 'CV file storage and retrieval',
-      icon: <Cloud className="w-5 h-5" />,
+      description: 'Website and database services',
+      icon: <Globe className="w-5 h-5" />,
     },
   ]);
 
@@ -58,109 +45,58 @@ const Status = () => {
     setChecking(true);
     const updatedServices = [...services];
 
-    // Check ParseScore API
+    // Check AI Scoring - test backend service availability
     try {
-      const parseScoreUrl = import.meta.env.VITE_PARSESCORE_API_URL;
+      const apiUrl = import.meta.env.VITE_PARSESCORE_API_URL || 'http://localhost:8000';
       const start = Date.now();
 
-      // Simple health check - just check if the URL is reachable
-      const response = await fetch(`${parseScoreUrl}/health`, {
+      // Check if the AI scoring service is available
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`${apiUrl}/v1/health`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
+        signal: controller.signal,
       }).catch(() => null);
 
+      clearTimeout(timeoutId);
       const responseTime = Date.now() - start;
 
       updatedServices[0] = {
         ...updatedServices[0],
-        status: response?.ok ? 'operational' : 'down',
-        responseTime,
-        lastChecked: new Date(),
-      };
-    } catch (error) {
-      updatedServices[0] = {
-        ...updatedServices[0],
-        status: 'down',
-        lastChecked: new Date(),
-      };
-    }
-
-    // Check AI Scoring (OpenAI) - indirect check via ParseScore API
-    try {
-      const parseScoreUrl = import.meta.env.VITE_PARSESCORE_API_URL;
-      const start = Date.now();
-
-      // Check if the scoring endpoint is responsive
-      const response = await fetch(`${parseScoreUrl}/ai/health`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000),
-      }).catch(() => null);
-
-      const responseTime = Date.now() - start;
-
-      updatedServices[1] = {
-        ...updatedServices[1],
         status: response?.ok ? 'operational' : 'degraded',
         responseTime,
         lastChecked: new Date(),
       };
     } catch (error) {
-      // If we can't reach the AI health endpoint, mark as degraded (not down)
-      // because basic scoring might still work
-      updatedServices[1] = {
-        ...updatedServices[1],
+      updatedServices[0] = {
+        ...updatedServices[0],
         status: 'degraded',
         lastChecked: new Date(),
       };
     }
 
-    // Check Database (Supabase)
+    // Check Site - test database connectivity
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const start = Date.now();
 
-      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000),
-      }).catch(() => null);
+      // Test Supabase connection by attempting a simple query
+      const { error } = await supabase
+        .from('roles')
+        .select('id')
+        .limit(1);
 
       const responseTime = Date.now() - start;
 
-      updatedServices[2] = {
-        ...updatedServices[2],
-        status: response ? 'operational' : 'down',
+      updatedServices[1] = {
+        ...updatedServices[1],
+        status: !error ? 'operational' : 'down',
         responseTime,
         lastChecked: new Date(),
       };
     } catch (error) {
-      updatedServices[2] = {
-        ...updatedServices[2],
-        status: 'down',
-        lastChecked: new Date(),
-      };
-    }
-
-    // Check File Storage (Supabase Storage)
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const start = Date.now();
-
-      const response = await fetch(`${supabaseUrl}/storage/v1/`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000),
-      }).catch(() => null);
-
-      const responseTime = Date.now() - start;
-
-      updatedServices[3] = {
-        ...updatedServices[3],
-        status: response ? 'operational' : 'down',
-        responseTime,
-        lastChecked: new Date(),
-      };
-    } catch (error) {
-      updatedServices[3] = {
-        ...updatedServices[3],
+      updatedServices[1] = {
+        ...updatedServices[1],
         status: 'down',
         lastChecked: new Date(),
       };
@@ -321,10 +257,8 @@ const Status = () => {
                 <div>
                   <h4 className="font-medium mb-2">Impact on features:</h4>
                   <ul className="space-y-1 text-muted-foreground">
-                    <li>• <strong>ParseScore API Down:</strong> CV parsing and scoring unavailable</li>
-                    <li>• <strong>AI Scoring Degraded:</strong> Basic scoring available, AI features limited</li>
-                    <li>• <strong>Database Down:</strong> Unable to save or retrieve data</li>
-                    <li>• <strong>File Storage Down:</strong> Unable to upload or download CVs</li>
+                    <li>• <strong>AI Scoring Down:</strong> AI-powered candidate scoring and interview features may be unavailable</li>
+                    <li>• <strong>Site Down:</strong> Unable to access the website, save data, or upload files</li>
                   </ul>
                 </div>
 
