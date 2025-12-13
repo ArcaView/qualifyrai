@@ -9,6 +9,13 @@ export interface Interview {
   interviewer: string;
   notes: string;
   type: 'phone_screen' | 'technical' | 'behavioral' | 'final' | 'other';
+  interview_pack?: any; // Optional interview pack
+  summary?: {
+    summary: string;
+    overall_score?: number;
+    strengths?: string[];
+    concerns?: string[];
+  };
 }
 
 export interface StatusHistoryEntry {
@@ -252,8 +259,34 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const updateRole = async (id: string, updates: Partial<Role>) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      // Try getting session first (faster, uses cached session)
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      let user;
+      if (sessionData?.session?.user) {
+        user = sessionData.session.user;
+      } else {
+        // Fallback to getUser if session doesn't have user
+        // Add timeout to prevent hanging
+        const getUserPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise<{ data: { user: null }, error: Error }>((_, reject) => 
+          setTimeout(() => reject(new Error('getUser() timeout after 10 seconds')), 10000)
+        );
+        
+        try {
+          const result = await Promise.race([getUserPromise, timeoutPromise]) as any;
+          user = result?.data?.user;
+        } catch (err: any) {
+          if (err.message?.includes('timeout')) {
+            throw new Error('Authentication timeout. Please refresh the page and try again.');
+          }
+          throw err;
+        }
+      }
+
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
 
       const dbUpdates: any = {};
       if (updates.title) dbUpdates.title = updates.title;
@@ -263,24 +296,53 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (updates.description) dbUpdates.description = updates.description;
       if (updates.status) dbUpdates.is_active = updates.status === 'active';
 
+      // Handle salary update - parse salary string to extract min/max
+      if (updates.salary !== undefined) {
+        if (updates.salary) {
+          const salaryMatch = updates.salary.match(/[\d,]+/g);
+          if (salaryMatch && salaryMatch.length >= 2) {
+            dbUpdates.salary_min = parseFloat(salaryMatch[0].replace(/,/g, ''));
+            dbUpdates.salary_max = parseFloat(salaryMatch[1].replace(/,/g, ''));
+          } else if (salaryMatch && salaryMatch.length === 1) {
+            dbUpdates.salary_min = parseFloat(salaryMatch[0].replace(/,/g, ''));
+            dbUpdates.salary_max = null;
+          } else {
+            dbUpdates.salary_min = null;
+            dbUpdates.salary_max = null;
+          }
+        } else {
+          // Empty salary string means clear the salary
+          dbUpdates.salary_min = null;
+          dbUpdates.salary_max = null;
+        }
+      }
+
       const { error } = await supabase
         .from('roles')
         .update(dbUpdates)
         .eq('id', id)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
 
       if (error) throw error;
 
-      // Update local state optimistically
+      // Update local state optimistically for immediate UI feedback
       setRoles(prev => prev.map(role =>
         role.id === id ? { ...role, ...updates } : role
       ));
 
-      // Track analytics event (non-blocking)
+      // Refresh roles in background to ensure UI is in sync with database
+      refreshRoles().catch(() => {
+        // Silently fail - optimistic update already applied
+      });
+
+      // Track analytics event (non-blocking, failures are handled silently)
       trackEvent('role_updated', {
         role_id: id,
         updated_fields: Object.keys(updates)
-      }).catch(err => console.error('Analytics tracking failed:', err));
+      }).catch(() => {
+        // Analytics failures are non-critical and handled silently in trackEvent
+      });
 
       toast({
         title: 'Role updated',
@@ -311,10 +373,12 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setRoles(prev => prev.filter(role => role.id !== id));
 
-      // Track analytics event (non-blocking)
+      // Track analytics event (non-blocking, failures are handled silently)
       trackEvent('role_deleted', {
         role_id: id
-      }).catch(err => console.error('Analytics tracking failed:', err));
+      }).catch(() => {
+        // Analytics failures are non-critical and handled silently in trackEvent
+      });
 
       toast({
         title: 'Role deleted',
@@ -416,12 +480,14 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return role;
       }));
 
-      // Track analytics event (non-blocking)
+      // Track analytics event (non-blocking, failures are handled silently)
       trackEvent('candidate_added', {
         role_id: roleId,
         candidate_id: data.id,
         candidate_name: candidate.name
-      }).catch(err => console.error('Analytics tracking failed:', err));
+      }).catch(() => {
+        // Analytics failures are non-critical and handled silently in trackEvent
+      });
 
       toast({
         title: 'Candidate added',
@@ -600,9 +666,36 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       const updatedInterviews = [...candidate.interviews, newInterview];
 
+      // Add status history entry for "interview booked"
+      const interviewTypeLabels: Record<Interview['type'], string> = {
+        phone_screen: 'Phone Screen',
+        technical: 'Technical',
+        behavioral: 'Behavioral',
+        final: 'Final',
+        other: 'Interview'
+      };
+      const interviewLabel = interviewTypeLabels[interview.type] || 'Interview';
+      const interviewDate = new Date(interview.date).toLocaleDateString();
+      
+      const interviewBookedEntry: StatusHistoryEntry = {
+        status: candidate.status === 'interviewing' ? candidate.status : 'interviewing',
+        changedAt: new Date().toISOString(),
+        note: `${interviewLabel} interview booked for ${interviewDate} with ${interview.interviewer}`
+      };
+
+      const updatedStatusHistory = [...candidate.statusHistory, interviewBookedEntry];
+      const newStatus = candidate.status === 'interviewing' ? candidate.status : 'interviewing';
+
       const { error } = await supabase
         .from('candidates')
-        .update({ interview_notes: updatedInterviews })
+        .update({ 
+          interview_notes: updatedInterviews,
+          status: newStatus,
+          cv_parsed_data: {
+            ...(candidate.cv_parsed_data || {}),
+            status_history: updatedStatusHistory
+          }
+        })
         .eq('id', candidateId)
         .eq('user_id', user.id);
 
@@ -614,7 +707,9 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (c.id === candidateId) {
               return {
                 ...c,
-                interviews: updatedInterviews
+                interviews: updatedInterviews,
+                status: newStatus,
+                statusHistory: updatedStatusHistory
               };
             }
             return c;
@@ -641,7 +736,7 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
-  const updateInterview = async (roleId: string, candidateId: string, interviewId: string, updates: Partial<Interview>) => {
+  const updateInterview = async (roleId: string, candidateId: string, interviewId: string, updates: Partial<Interview>, interviewConducted: boolean = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -651,13 +746,47 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       if (!candidate) throw new Error('Candidate not found');
 
-      const updatedInterviews = candidate.interviews.map(interview =>
-        interview.id === interviewId ? { ...interview, ...updates } : interview
+      const interview = candidate.interviews.find(i => i.id === interviewId);
+      const updatedInterviews = candidate.interviews.map(i =>
+        i.id === interviewId ? { ...i, ...updates } : i
       );
+
+      // Add status history entry if summary was generated (interview conducted)
+      let updatedStatusHistory = candidate.statusHistory;
+      if (interviewConducted && updates.summary && interview) {
+        const interviewTypeLabels: Record<Interview['type'], string> = {
+          phone_screen: 'Phone Screen',
+          technical: 'Technical',
+          behavioral: 'Behavioral',
+          final: 'Final',
+          other: 'Interview'
+        };
+        const interviewLabel = interviewTypeLabels[interview.type] || 'Interview';
+        const interviewDate = new Date(interview.date).toLocaleDateString();
+        const scoreText = updates.summary.overall_score 
+          ? ` (Score: ${updates.summary.overall_score.toFixed(1)}/5.0)` 
+          : '';
+        
+        const interviewConductedEntry: StatusHistoryEntry = {
+          status: candidate.status,
+          changedAt: new Date().toISOString(),
+          note: `${interviewLabel} interview conducted on ${interviewDate}${scoreText}`
+        };
+        
+        updatedStatusHistory = [...candidate.statusHistory, interviewConductedEntry];
+      }
+
+      const updateData: any = { interview_notes: updatedInterviews };
+      if (interviewConducted && updates.summary) {
+        updateData.cv_parsed_data = {
+          ...(candidate.cv_parsed_data || {}),
+          status_history: updatedStatusHistory
+        };
+      }
 
       const { error } = await supabase
         .from('candidates')
-        .update({ interview_notes: updatedInterviews })
+        .update(updateData)
         .eq('id', candidateId)
         .eq('user_id', user.id);
 
@@ -669,7 +798,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (c.id === candidateId) {
               return {
                 ...c,
-                interviews: updatedInterviews
+                interviews: updatedInterviews,
+                statusHistory: updatedStatusHistory
               };
             }
             return c;
@@ -682,10 +812,8 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return role;
       }));
 
-      toast({
-        title: 'Interview updated',
-        description: 'Interview note has been updated successfully'
-      });
+      // Only show toast for manual updates (not auto-saves from question notes/scores)
+      // Auto-saves are handled silently
     } catch (err: any) {
       toast({
         title: 'Error updating interview',
@@ -796,13 +924,15 @@ export const RolesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       setRoles(prev => [...prev, newRole]);
 
-      // Track analytics event (non-blocking)
+      // Track analytics event (non-blocking, failures are handled silently)
       trackEvent('role_created', {
         role_id: data.id,
         title: roleData.title,
         department: roleData.department,
         employment_type: roleData.type
-      }).catch(err => console.error('Analytics tracking failed:', err));
+      }).catch(() => {
+        // Analytics failures are non-critical and handled silently in trackEvent
+      });
 
       toast({
         title: 'Role created',

@@ -5,13 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -33,14 +26,13 @@ import {
   Mail,
   Phone,
   Trash2,
-  Eye,
   AlertTriangle,
   Download,
   Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useRoles } from "@/contexts/RolesContext";
+import { useRoles, type Candidate } from "@/contexts/RolesContext";
 import { useToast } from "@/hooks/use-toast";
 import { generateCandidateSummaryPDF } from "@/lib/candidateSummaryPDF";
 
@@ -86,19 +78,13 @@ const RoleDetails = () => {
   // Get candidates from role
   const candidates = role?.candidatesList || [];
 
-  const [viewCandidate, setViewCandidate] = useState<any>(null);
-  const [dialogPage, setDialogPage] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState<string | null>(null);
 
   const handleViewCandidate = (candidate: Candidate) => {
-    setViewCandidate(candidate);
-    setDialogPage(0);
-  };
-
-  const handleCloseViewDialog = () => {
-    setViewCandidate(null);
-    setDialogPage(0);
+    if (id) {
+      navigate(`/dashboard/candidates/${candidate.id}/${id}`);
+    }
   };
 
   const handleDeleteCandidate = (candidateId: string) => {
@@ -118,7 +104,35 @@ const RoleDetails = () => {
     }
   };
 
-  const sortedCandidates = [...candidates].sort((a, b) => (b.score || 0) - (a.score || 0));
+  // Helper function to calculate combined score (CV score + interview score)
+  const getCombinedScore = (candidate: Candidate): number => {
+    const cvScore = candidate.score || 0;
+    
+    // Calculate average interview score from summaries (1-5 scale, convert to 0-100)
+    const interviewScores = candidate.interviews
+      .filter(i => i.summary?.overall_score)
+      .map(i => (i.summary!.overall_score! / 5) * 100);
+    
+    if (interviewScores.length === 0) {
+      return cvScore; // No interviews, use CV score only
+    }
+    
+    const avgInterviewScore = interviewScores.reduce((sum, score) => sum + score, 0) / interviewScores.length;
+    
+    // Weighted combination: 60% CV score, 40% interview score
+    return (cvScore * 0.6) + (avgInterviewScore * 0.4);
+  };
+
+  // Sort by combined score (CV + interviews), then by CV score as tiebreaker
+  const sortedCandidates = [...candidates].sort((a, b) => {
+    const scoreA = getCombinedScore(a);
+    const scoreB = getCombinedScore(b);
+    if (scoreB !== scoreA) {
+      return scoreB - scoreA;
+    }
+    // Tiebreaker: use CV score
+    return (b.score || 0) - (a.score || 0);
+  });
 
   const getFitColor = (fit?: string) => {
     switch (fit) {
@@ -262,7 +276,11 @@ const RoleDetails = () => {
             </Card>
           ) : (
             sortedCandidates.map((candidate, index) => (
-              <Card key={candidate.id}>
+              <Card 
+                key={candidate.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => handleViewCandidate(candidate)}
+              >
                 <CardContent className="pt-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4 flex-1">
@@ -325,28 +343,56 @@ const RoleDetails = () => {
                           <span>{candidate.experience_years} years experience</span>
                           <span>Applied {new Date(candidate.appliedDate).toLocaleDateString()}</span>
                         </div>
+
+                        {/* Interview Results */}
+                        {candidate.interviews.length > 0 && (
+                          <div className="mt-3 pt-3 border-t">
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <span className="text-xs font-medium text-muted-foreground">Interviews:</span>
+                              {candidate.interviews.map((interview, idx) => {
+                                const interviewScore = interview.summary?.overall_score;
+                                return (
+                                  <Badge 
+                                    key={interview.id} 
+                                    variant={interviewScore ? "default" : "outline"}
+                                    className="text-xs"
+                                  >
+                                    {interview.type === 'phone_screen' ? 'Phone' : 
+                                     interview.type === 'technical' ? 'Technical' :
+                                     interview.type === 'behavioral' ? 'Behavioral' :
+                                     interview.type === 'final' ? 'Final' : 'Interview'}
+                                    {interviewScore && ` ${interviewScore.toFixed(1)}/5`}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Score */}
-                      {candidate.score && (
-                        <div className="flex-shrink-0 text-right">
-                          <div className="text-3xl font-bold bg-gradient-to-br from-primary to-primary/60 bg-clip-text text-transparent">
-                            {candidate.score}%
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">Match Score</p>
-                        </div>
-                      )}
+                      {/* Scores */}
+                      <div className="flex-shrink-0 text-right space-y-1">
+                        {getCombinedScore(candidate) !== (candidate.score || 0) && (
+                          <>
+                            <div className="text-2xl font-bold bg-gradient-to-br from-primary to-primary/60 bg-clip-text text-transparent">
+                              {getCombinedScore(candidate).toFixed(0)}%
+                            </div>
+                            <p className="text-xs text-muted-foreground">Combined Score</p>
+                          </>
+                        )}
+                        {candidate.score && (
+                          <>
+                            <div className={`text-xl font-semibold ${getCombinedScore(candidate) !== candidate.score ? 'text-muted-foreground/70' : 'bg-gradient-to-br from-primary to-primary/60 bg-clip-text text-transparent'}`}>
+                              {candidate.score}%
+                            </div>
+                            <p className="text-xs text-muted-foreground">{getCombinedScore(candidate) !== candidate.score ? 'CV Score' : 'Match Score'}</p>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewCandidate(candidate)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="destructive"
                         size="sm"
@@ -361,143 +407,6 @@ const RoleDetails = () => {
             ))
           )}
         </div>
-
-        {/* View Candidate Dialog */}
-        <Dialog open={!!viewCandidate} onOpenChange={(open) => !open && handleCloseViewDialog()}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Candidate Details</DialogTitle>
-              <DialogDescription>
-                {dialogPage === 0 ? 'Full information for' : 'Scoring details for'} {viewCandidate?.name}
-              </DialogDescription>
-            </DialogHeader>
-            {viewCandidate && (
-              <div className="space-y-4">
-                {dialogPage === 0 ? (
-                  // Details Page
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Name</Label>
-                        <p className="text-sm font-medium">{viewCandidate.name}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Match Score</Label>
-                        <p className="text-sm font-medium">{viewCandidate.score}%</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Email</Label>
-                        <p className="text-sm font-medium">{viewCandidate.email}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Phone</Label>
-                        <p className="text-sm font-medium">{viewCandidate.phone}</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Experience</Label>
-                        <p className="text-sm font-medium">{viewCandidate.experience_years} years</p>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Applied Date</Label>
-                        <p className="text-sm font-medium">{new Date(viewCandidate.appliedDate).toLocaleDateString()}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Fit Level</Label>
-                        <div>
-                          <Badge className={getFitColor(viewCandidate.fit)} variant="secondary">
-                            {viewCandidate.fit}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Resume</Label>
-                        <p className="text-sm font-medium">{viewCandidate.fileName}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Skills</Label>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {viewCandidate.skills.map((skill) => (
-                          <Badge key={skill} variant="outline">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  // Scoring Page
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-sm font-semibold mb-3">Match Analysis</h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                          <span className="text-sm">Skills Match</span>
-                          <span className="text-sm font-semibold">{viewCandidate.score ? Math.min(viewCandidate.score + 5, 100) : 85}%</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                          <span className="text-sm">Experience Level</span>
-                          <span className="text-sm font-semibold">{viewCandidate.score ? Math.max(viewCandidate.score - 8, 70) : 82}%</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                          <span className="text-sm">Cultural Fit</span>
-                          <span className="text-sm font-semibold">{viewCandidate.score ? Math.max(viewCandidate.score - 3, 75) : 88}%</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/20">
-                          <span className="text-sm font-semibold">Overall Score</span>
-                          <span className="text-lg font-bold text-primary">{viewCandidate.score}%</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold mb-2">Assessment Notes</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {viewCandidate.fit === 'excellent'
-                          ? 'Exceptional candidate with strong alignment to role requirements. Demonstrates advanced expertise in key technologies and brings valuable experience to the team.'
-                          : viewCandidate.fit === 'good'
-                          ? 'Solid candidate with good technical skills and relevant experience. Shows potential for growth and could be a valuable addition to the team with proper onboarding.'
-                          : 'Candidate meets basic requirements but may need additional training or development in certain areas. Consider for roles with lower experience requirements.'}
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold mb-2">Key Strengths</h3>
-                      <ul className="space-y-1.5 text-sm text-muted-foreground">
-                        {viewCandidate.skills.slice(0, 3).map((skill, idx) => (
-                          <li key={idx} className="flex items-start gap-2">
-                            <span className="text-primary mt-0.5">•</span>
-                            <span>Proficient in {skill}</span>
-                          </li>
-                        ))}
-                        <li className="flex items-start gap-2">
-                          <span className="text-primary mt-0.5">•</span>
-                          <span>{viewCandidate.experience_years} years of relevant industry experience</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {/* Pagination Dots */}
-                <div className="flex justify-center gap-2 pt-2">
-                  <button
-                    onClick={() => setDialogPage(0)}
-                    className={`h-2 rounded-full transition-all ${
-                      dialogPage === 0 ? 'w-8 bg-primary' : 'w-2 bg-muted-foreground/30'
-                    }`}
-                    aria-label="View details page"
-                  />
-                  <button
-                    onClick={() => setDialogPage(1)}
-                    className={`h-2 rounded-full transition-all ${
-                      dialogPage === 1 ? 'w-8 bg-primary' : 'w-2 bg-muted-foreground/30'
-                    }`}
-                    aria-label="View scoring page"
-                  />
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
 
         {/* Delete Candidate Dialog */}
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

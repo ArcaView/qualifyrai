@@ -67,7 +67,36 @@ supabase functions deploy create-checkout-session
 - Added `subscription_data.metadata` with user_id
 - Updated success URL to `/complete-signup?success=true&session_id={CHECKOUT_SESSION_ID}`
 
-### 4. stripe-webhook (RECOMMENDED - Future)
+### 4. send-feedback-email (NEW - REQUIRED)
+
+**Purpose**: Sends email notifications when feedback or feature requests are submitted
+
+**Deploy**:
+```bash
+cd apps/web
+supabase functions deploy send-feedback-email
+```
+
+**Environment Variables Required**:
+- `RESEND_API_KEY` - Your Resend API key (get from https://resend.com)
+- `FEEDBACK_EMAIL` - Email address to receive notifications (default: info@qualifyrai.com)
+
+**Setup**:
+1. Sign up for Resend account at https://resend.com
+2. Get your API key from Resend dashboard
+3. Set secrets:
+   ```bash
+   supabase secrets set RESEND_API_KEY=re_your_api_key_here
+   supabase secrets set FEEDBACK_EMAIL=info@qualifyrai.com
+   ```
+4. Run database migration: `apps/web/supabase/migrations/20250122_002_create_feedback_email_trigger.sql`
+5. See `FEEDBACK_EMAIL_SETUP.md` for detailed setup instructions
+
+**Test**:
+1. Submit feedback through the application
+2. Check that email is received at the configured address
+
+### 5. stripe-webhook (RECOMMENDED - Future)
 
 **Purpose**: Handles Stripe webhook events for subscription lifecycle
 
@@ -92,6 +121,7 @@ supabase functions deploy stripe-webhook
 - create-portal-session
 - verify-payment
 - create-checkout-session
+- send-feedback-email
 
 ⏳ Needs Deployment:
 - All functions above (if not already deployed)

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { UserProvider } from "@/contexts/UserContext";
 import { RolesProvider } from "@/contexts/RolesContext";
 import { PricingProvider } from "@/contexts/PricingContext";
@@ -19,11 +19,11 @@ import Auth from "./pages/Auth";
 import Overview from "./pages/dashboard/Overview";
 import ParseCV from "./pages/dashboard/ParseCV";
 import BulkParse from "./pages/dashboard/BulkParse";
-import CoverLetterReview from "./pages/dashboard/CoverLetterReview";
 import OpenRoles from "./pages/dashboard/OpenRoles";
 import RoleDetails from "./pages/dashboard/RoleDetails";
 import AllCandidates from "./pages/dashboard/AllCandidates";
 import CandidateDetail from "./pages/dashboard/CandidateDetail";
+import InterviewDetail from "./pages/dashboard/InterviewDetail";
 import Analytics from "./pages/Analytics";
 import Billing from "./pages/Billing";
 import Settings from "./pages/Settings";
@@ -58,11 +58,12 @@ const AppContent = () => {
           <Route path="/dashboard" element={<ProtectedRoute><Overview /></ProtectedRoute>} />
           <Route path="/dashboard/parse" element={<ProtectedRoute><ParseCV /></ProtectedRoute>} />
           <Route path="/dashboard/bulk-parse" element={<ProtectedRoute><BulkParse /></ProtectedRoute>} />
-          <Route path="/dashboard/cover-letter" element={<ProtectedRoute><CoverLetterReview /></ProtectedRoute>} />
+          <Route path="/dashboard/cover-letter" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard/roles" element={<ProtectedRoute><OpenRoles /></ProtectedRoute>} />
           <Route path="/dashboard/roles/:id" element={<ProtectedRoute><RoleDetails /></ProtectedRoute>} />
           <Route path="/dashboard/candidates" element={<ProtectedRoute><AllCandidates /></ProtectedRoute>} />
           <Route path="/dashboard/candidates/:candidateId/:roleId" element={<ProtectedRoute><CandidateDetail /></ProtectedRoute>} />
+          <Route path="/dashboard/interviews/:candidateId/:roleId/:interviewId" element={<ProtectedRoute><InterviewDetail /></ProtectedRoute>} />
           <Route path="/dashboard/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
           <Route path="/dashboard/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
           <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

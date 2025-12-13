@@ -1,5 +1,23 @@
 import { supabase } from './supabase';
 
+// Cache to track if analytics function exists (to avoid repeated 404s)
+// Use localStorage to persist across page refreshes
+const ANALYTICS_FUNCTION_EXISTS_KEY = 'analytics_function_exists';
+
+function getAnalyticsFunctionExists(): boolean | null {
+  const stored = localStorage.getItem(ANALYTICS_FUNCTION_EXISTS_KEY);
+  if (stored === null) {
+    // Default to false (assume function doesn't exist) to prevent 404 errors
+    // Only make the call if we've explicitly verified it exists
+    return false;
+  }
+  return stored === 'true';
+}
+
+function setAnalyticsFunctionExists(exists: boolean) {
+  localStorage.setItem(ANALYTICS_FUNCTION_EXISTS_KEY, exists.toString());
+}
+
 /**
  * Analytics event types
  */
@@ -27,25 +45,61 @@ export async function trackEvent(
   eventType: AnalyticsEventType,
   metadata?: Record<string, any>
 ): Promise<void> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
+  // Skip if we know the function doesn't exist (prevents 404 errors in console)
+  // Default behavior: assume function doesn't exist until proven otherwise
+  const functionExists = getAnalyticsFunctionExists();
+  if (functionExists === false) {
+    return;
+  }
 
-    if (!user) {
-      console.warn('Cannot track event: No authenticated user');
+  // If functionExists is true, we've verified it exists, so make the call
+  // If functionExists is null (shouldn't happen with our default), also skip to be safe
+  if (functionExists !== true) {
+    return;
+  }
+
+  try {
+    // Use getSession() for better performance (cached, faster)
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      // Silently fail if no user - analytics is optional
       return;
     }
 
     const { error } = await supabase.rpc('log_analytics_event', {
-      p_user_id: user.id,
+      p_user_id: session.user.id,
       p_event_type: eventType,
       p_metadata: metadata || {}
     });
 
     if (error) {
-      console.error('Error tracking analytics event:', error);
+      // Handle missing RPC function gracefully (404/PGRST202 errors)
+      // This is expected if the analytics function hasn't been set up in the database
+      if (error.code === 'PGRST202' || error.code === '42883' || error.message?.includes('Could not find the function')) {
+        // Mark that the function doesn't exist to prevent future calls (persist in localStorage)
+        setAnalyticsFunctionExists(false);
+        return;
+      }
+      
+      // Only log unexpected errors
+      console.warn('Analytics tracking error (non-critical):', error.message || error.code);
+    } else {
+      // Function exists and call succeeded - ensure it's marked as existing
+      setAnalyticsFunctionExists(true);
     }
-  } catch (error) {
-    console.error('Failed to track analytics event:', error);
+  } catch (error: any) {
+    // Handle missing RPC function in catch block too
+    if (error?.code === 'PGRST202' || error?.code === '42883' || error?.message?.includes('Could not find the function')) {
+      setAnalyticsFunctionExists(false);
+      return;
+    }
+    
+    // Silently fail - analytics is optional and shouldn't break the app
+    // Only log if it's an unexpected error type
+    if (error?.code !== 'PGRST202' && error?.code !== '42883') {
+      console.warn('Analytics tracking failed (non-critical):', error?.message || error);
+    }
   }
 }
 

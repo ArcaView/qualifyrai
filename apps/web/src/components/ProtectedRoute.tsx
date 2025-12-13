@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { isAuthenticated, isLoading, hasActiveSubscription } = useUser();
+  const { isAuthenticated, isLoading } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -16,12 +16,14 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       if (!isAuthenticated) {
         // Not logged in -> redirect to login
         navigate('/auth?tab=login', { replace: true });
-      } else if (!hasActiveSubscription) {
-        // Logged in but no active subscription -> redirect to complete signup
-        navigate('/complete-signup', { replace: true });
       }
+      // NOTE: We do NOT check subscription here
+      // Subscription check only happens:
+      // 1. After signup (redirects to /complete-signup)
+      // 2. On /complete-signup page itself
+      // Users logging in should go directly to dashboard
     }
-  }, [isAuthenticated, isLoading, hasActiveSubscription, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   if (isLoading) {
     return (
@@ -31,7 +33,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!isAuthenticated || !hasActiveSubscription) {
+  if (!isAuthenticated) {
     return null;
   }
 

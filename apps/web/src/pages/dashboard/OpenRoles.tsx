@@ -117,14 +117,38 @@ const OpenRoles = () => {
 
   const handleUpdateRole = async () => {
     if (!editingRole) return;
+    
     try {
-      await updateRole(editingRole.id, formData);
+      // Construct salary string from currency, salaryMin, and salaryMax
+      let salary = '';
+      if (formData.salaryMin && formData.salaryMax) {
+        salary = `${formData.currency}${formatNumberWithCommas(formData.salaryMin)} - ${formData.currency}${formatNumberWithCommas(formData.salaryMax)}`;
+      } else if (formData.salaryMin) {
+        salary = `${formData.currency}${formatNumberWithCommas(formData.salaryMin)}`;
+      }
+
+      // Prepare role updates (only include fields that are part of Role interface)
+      const roleUpdates: Partial<Role> = {
+        title: formData.title,
+        department: formData.department,
+        location: formData.location,
+        type: formData.type,
+        description: formData.description,
+      };
+
+      // Only include salary if it's been set
+      if (salary) {
+        roleUpdates.salary = salary;
+      }
+
+      await updateRole(editingRole.id, roleUpdates);
       setDialogOpen(false);
       setEditingRole(null);
       resetForm();
     } catch (error: any) {
       // Error is already handled by updateRole with toast notification
-      // TODO: Replace with proper error logging service (e.g., Sentry)
+      // Re-throw to ensure it's handled properly
+      throw error;
     }
   };
 

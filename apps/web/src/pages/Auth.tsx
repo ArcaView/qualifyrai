@@ -163,40 +163,269 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginData.email,
-        password: loginData.password,
+      console.log('=== LOGIN DEBUG START ===');
+      console.log('Attempting login for:', loginData.email);
+      console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+      console.log('Supabase key present:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+      
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      // WORKAROUND: Use direct fetch since Supabase client is timing out
+      // The direct fetch works, so we'll use it and manually set the session
+      const authUrl = `${supabaseUrl}/auth/v1/token?grant_type=password`;
+      console.log('Using direct fetch workaround to:', authUrl);
+      
+      let authData: any = null;
+      let authError: any = null;
+      
+      try {
+        const response = await fetch(authUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey || '',
+          },
+          body: JSON.stringify({
+            email: loginData.email,
+            password: loginData.password,
+          }),
+        });
+        
+        console.log('Direct fetch response status:', response.status);
+        console.log('Direct fetch response headers:', Object.fromEntries(response.headers.entries()));
+        
+        const responseData = await response.json();
+        console.log('Direct fetch response data keys:', Object.keys(responseData));
+        console.log('Direct fetch response (sanitized):', {
+          hasAccessToken: !!responseData.access_token,
+          hasRefreshToken: !!responseData.refresh_token,
+          hasUser: !!responseData.user,
+          tokenType: responseData.token_type,
+          expiresIn: responseData.expires_in,
+        });
+        
+        if (response.ok && responseData.access_token) {
+          // Success! Direct fetch worked, now we need to set the session
+          console.log('Direct fetch succeeded, setting session...');
+          
+          // Construct session object
+          const session = {
+            access_token: responseData.access_token,
+            refresh_token: responseData.refresh_token,
+            expires_in: responseData.expires_in,
+            expires_at: responseData.expires_at || Math.floor(Date.now() / 1000) + responseData.expires_in,
+            token_type: responseData.token_type || 'bearer',
+            user: responseData.user,
+          };
+          
+          // Store session directly - Supabase will read from localStorage
+          // Format: sb-{project-ref}-auth-token
+          const projectRef = supabaseUrl.match(/https?:\/\/([^.]+)\.supabase\.co/)?.[1] || 'unknown';
+          const storageKey = `sb-${projectRef}-auth-token`;
+          
+          const sessionData = {
+            access_token: responseData.access_token,
+            refresh_token: responseData.refresh_token,
+            expires_at: responseData.expires_at || Math.floor(Date.now() / 1000) + responseData.expires_in,
+            expires_in: responseData.expires_in,
+            token_type: responseData.token_type || 'bearer',
+            user: responseData.user,
+          };
+          
+          localStorage.setItem(storageKey, JSON.stringify(sessionData));
+          console.log('Session stored in localStorage with key:', storageKey);
+          
+          // Check subscription status immediately to avoid redirect flash
+          let hasSubscription = false;
+          try {
+            const subscriptionCheckUrl = `${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${responseData.user.id}&status=eq.active&select=id,status,pricing_plans!plan_id(name,slug,limits)`;
+            const subscriptionResponse = await fetch(subscriptionCheckUrl, {
+              headers: {
+                'apikey': supabaseAnonKey || '',
+                'Authorization': `Bearer ${responseData.access_token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (subscriptionResponse.ok) {
+              const subscriptionData = await subscriptionResponse.json();
+              if (subscriptionData && subscriptionData.length > 0 && subscriptionData[0].pricing_plans) {
+                hasSubscription = true;
+                console.log('User has active subscription, will skip pricing page');
+              }
+            }
+          } catch (subError) {
+            console.warn('Could not check subscription status:', subError);
+          }
+          
+          // Store subscription status in session metadata for quick access
+          if (hasSubscription) {
+            const sessionWithSub = {
+              ...sessionData,
+              hasSubscription: true,
+            };
+            localStorage.setItem(storageKey, JSON.stringify(sessionWithSub));
+          }
+          
+          // SKIP getSession() - it's also hanging!
+          // The session is in localStorage, UserContext will read it on next check
+          // Manually trigger a storage event to wake up onAuthStateChange
+          window.dispatchEvent(new StorageEvent('storage', {
+            key: storageKey,
+            newValue: JSON.stringify(sessionData),
+            storageArea: localStorage,
+          }));
+          console.log('Storage event dispatched');
+          
+          // Use the session data we have directly
+          authData = {
+            user: responseData.user,
+            session: session,
+          };
+        } else {
+          // Handle error response
+          authError = {
+            message: responseData.error_description || responseData.error || 'Login failed',
+            status: response.status,
+          };
+          console.error('Direct fetch returned error:', authError);
+        }
+      } catch (fetchError: any) {
+        console.error('Direct fetch exception:', {
+          message: fetchError.message,
+          name: fetchError.name,
+          stack: fetchError.stack,
+        });
+        authError = fetchError;
+      }
+      
+      // Fallback: Try Supabase client if direct fetch didn't work
+      if (!authData && !authError) {
+        console.log('Falling back to Supabase client...');
+        const loginPromise = supabase.auth.signInWithPassword({
+          email: loginData.email,
+          password: loginData.password,
+        });
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Login request timed out after 5 seconds')), 5000)
+        );
+        
+        try {
+          const result = await Promise.race([loginPromise, timeoutPromise]) as any;
+          authData = result.data;
+          authError = result.error;
+        } catch (timeoutError) {
+          console.error('Supabase client timeout:', timeoutError);
+          authError = timeoutError;
+        }
+      }
+      
+      const { data, error } = { data: authData, error: authError };
+
+      console.log('=== LOGIN RESPONSE ===');
+      console.log('Login response received:', { 
+        hasUser: !!data?.user, 
+        hasSession: !!data?.session, 
+        userId: data?.user?.id,
+        userEmail: data?.user?.email,
+        sessionExpiresAt: data?.session?.expires_at,
+        error: error?.message,
+        errorCode: error?.status,
       });
+      console.log('=== LOGIN DEBUG END ===');
 
       if (error) {
+        console.error('Login error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+          stack: error.stack
+        });
         throw error;
       }
 
-      if (data.user) {
-        // Check if email is confirmed
-        if (!data.user.email_confirmed_at) {
-          toast({
-            title: "Email Not Verified",
-            description: "Please verify your email before logging in. Check your inbox for the verification link.",
-            variant: "destructive",
-          });
-          await supabase.auth.signOut();
-          setIsLoading(false);
-          return;
-        }
-
+      if (data?.user && data?.session) {
+        console.log('Login successful, user:', data.user.id);
+        
         toast({
           title: "Welcome back!",
           description: "You've been logged in successfully.",
         });
 
-        navigate("/dashboard");
+        // Wait for subscription check to complete before navigating
+        // This prevents the flash of the pricing page
+        console.log('Waiting for subscription check...');
+        
+        // Poll for subscription check to complete
+        const checkSubscription = async () => {
+          let attempts = 0;
+          const maxAttempts = 20; // 2 seconds max wait
+          
+          while (attempts < maxAttempts) {
+            // Check if subscription has been checked by reading from UserContext
+            // We'll use a custom event to signal when it's done
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+            
+            // Check localStorage for a flag or check if we can read the session
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const projectRef = supabaseUrl?.match(/https?:\/\/([^.]+)\.supabase\.co/)?.[1] || 'unknown';
+            const storageKey = `sb-${projectRef}-auth-token`;
+            const storedSession = localStorage.getItem(storageKey);
+            
+            if (storedSession) {
+              try {
+                const sessionData = JSON.parse(storedSession);
+                // If we have subscription info cached, we can proceed
+                // Otherwise wait a bit more for the query to complete
+                if (attempts > 5) {
+                  // After 500ms, proceed anyway - the query will complete in background
+                  break;
+                }
+              } catch (e) {
+                // Continue waiting
+              }
+            }
+          }
+        };
+        
+        await checkSubscription();
+        
+        // Force a page reload to let UserContext read from localStorage
+        console.log('Reloading page to initialize auth state...');
+        window.location.href = '/dashboard';
+      } else if (data?.user && !data?.session) {
+        // User exists but no session - might need email verification
+        console.warn('User exists but no session');
+        toast({
+          title: "Email Not Verified",
+          description: "Please verify your email before logging in. Check your inbox for the verification link.",
+          variant: "destructive",
+        });
+        await supabase.auth.signOut();
+      } else {
+        // No user or session returned
+        console.error('No user or session returned from login', { data, error });
+        toast({
+          title: "Login Failed",
+          description: "Unable to complete login. Please try again.",
+          variant: "destructive",
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Login exception caught:', {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        fullError: error
+      });
+      
       const authError = error as AuthError;
       toast({
         title: "Error",
-        description: authError.message || "Invalid credentials. Please try again.",
+        description: authError.message || error?.message || "Invalid credentials. Please try again.",
         variant: "destructive",
       });
     } finally {

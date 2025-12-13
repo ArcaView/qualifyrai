@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { resetOnboardingTour, OnboardingTour } from "@/components/OnboardingTour";
+import { useToast } from "@/hooks/use-toast";
 import {
   LayoutDashboard,
   Code2,
@@ -83,6 +84,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [runTour, setRunTour] = useState(false);
+  const { toast } = useToast();
 
   // Check if tour should auto-start from sidebar button click
   useEffect(() => {
@@ -158,6 +160,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
+                const isCoverLetter = item.href === "/dashboard/cover-letter";
 
                 // Add data-tour attributes to specific nav items
                 const getTourAttr = () => {
@@ -167,6 +170,34 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   if (item.href === "/dashboard/developer") return "nav-developer";
                   return undefined;
                 };
+
+                const handleCoverLetterClick = (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  toast({
+                    title: "Coming Soon",
+                    description: "Cover letter review is currently under development and will be available soon.",
+                  });
+                };
+
+                if (isCoverLetter) {
+                  return (
+                    <button
+                      key={item.href}
+                      onClick={handleCoverLetterClick}
+                      data-tour={getTourAttr()}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors cursor-not-allowed",
+                        "text-muted-foreground/50 opacity-60"
+                      )}
+                      disabled
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div>{item.title}</div>
+                      </div>
+                    </button>
+                  );
+                }
 
                 return (
                   <Link
@@ -213,6 +244,32 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.href;
+                const isCoverLetter = item.href === "/dashboard/cover-letter";
+
+                const handleCoverLetterClick = (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  toast({
+                    title: "Coming Soon",
+                    description: "Cover letter review is currently under development and will be available soon.",
+                  });
+                };
+
+                if (isCoverLetter) {
+                  return (
+                    <button
+                      key={item.href}
+                      onClick={handleCoverLetterClick}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors cursor-not-allowed",
+                        "text-muted-foreground/50 opacity-60"
+                      )}
+                      disabled
+                    >
+                      <Icon className="w-4 h-4" />
+                      {item.title}
+                    </button>
+                  );
+                }
 
                 return (
                   <Link

@@ -202,7 +202,11 @@ These are set in **Supabase Edge Functions** or your backend server, not in the 
 supabase secrets set STRIPE_SECRET_KEY=sk_live_...
 supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
 supabase secrets set PARSESCORE_API_KEY=ps_live_...
+supabase secrets set RESEND_API_KEY=re_your_api_key_here
+supabase secrets set FEEDBACK_EMAIL=info@qualifyrai.com
 ```
+
+**Note**: For email notifications setup, see `FEEDBACK_EMAIL_SETUP.md` for detailed instructions.
 
 ### Required Backend Secrets:
 
@@ -213,6 +217,10 @@ STRIPE_WEBHOOK_SECRET=whsec_...                   # Webhook verification
 
 # ParseScore API (if needed)
 PARSESCORE_API_KEY=ps_live_...                    # API authentication
+
+# Email Notifications (Resend)
+RESEND_API_KEY=re_...                             # Resend API key for sending emails
+FEEDBACK_EMAIL=info@qualifyrai.com               # Email address to receive feedback notifications
 
 # Supabase (auto-available in Edge Functions)
 SUPABASE_URL=https://...                          # Auto-injected

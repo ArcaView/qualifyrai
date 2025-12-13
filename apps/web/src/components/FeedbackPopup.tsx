@@ -84,10 +84,9 @@ export const FeedbackPopup = () => {
     }
 
     try {
-      const { error } = await supabase.from("feature_requests").insert({
-        title: "Feedback: " + feedback.message.substring(0, 50),
-        description: `${feedback.message}\n\n${feedback.email ? `Contact: ${feedback.email}` : ""}`,
-        status: "pending",
+      const { error } = await supabase.from("feedback_submissions").insert({
+        message: feedback.message.trim(),
+        email: feedback.email.trim() || null,
       });
 
       if (error) throw error;

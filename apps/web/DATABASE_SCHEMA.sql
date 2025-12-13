@@ -239,11 +239,11 @@ CREATE TABLE IF NOT EXISTS public.candidates (
   cv_file_url TEXT,
   cv_parsed_data JSONB, -- Full parsed CV data from ParseScore API
 
-  -- Scoring & Matching
-  overall_score INTEGER CHECK (overall_score >= 0 AND overall_score <= 100),
-  skills_match_score INTEGER CHECK (skills_match_score >= 0 AND skills_match_score <= 100),
-  experience_score INTEGER CHECK (experience_score >= 0 AND experience_score <= 100),
-  education_score INTEGER CHECK (education_score >= 0 AND education_score <= 100),
+  -- Scoring & Matching (NUMERIC for decimal precision)
+  overall_score NUMERIC(5,2) CHECK (overall_score >= 0 AND overall_score <= 100),
+  skills_match_score NUMERIC(5,2) CHECK (skills_match_score >= 0 AND skills_match_score <= 100),
+  experience_score NUMERIC(5,2) CHECK (experience_score >= 0 AND experience_score <= 100),
+  education_score NUMERIC(5,2) CHECK (education_score >= 0 AND education_score <= 100),
 
   -- Extracted Information
   skills JSONB DEFAULT '[]'::jsonb, -- Array of skills

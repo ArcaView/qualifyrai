@@ -208,7 +208,7 @@ Focus on:
 - Subtle red flags: unexplained gaps, vague descriptions, credential mismatches
 - Positive signals: leadership experience, impact-driven achievements
 
-Be concise, fair, and evidence-based. Adjustments should be modest - the baseline is generally accurate."""
+Provide comprehensive, detailed analysis. Be thorough in your assessment while remaining fair and evidence-based. Adjustments should be modest - the baseline is generally accurate."""
     
     def _format_user_prompt(self, context: Dict[str, Any]) -> str:
         """Format context into user prompt."""
@@ -244,18 +244,19 @@ Risk Flags: {len(context['flags'])}
 # Your Task
 Provide a structured assessment in JSON format:
 {{
-  "summary": "1-2 sentence overview of the match quality",
-  "strengths": ["Specific strength 1", "Specific strength 2", "Specific strength 3"],  // 3-5 bullet points
-  "concerns": ["Specific concern 1", "Specific concern 2"],  // 2-4 bullet points (or empty array if none)
-  "recommendation": "Brief recommendation (1-2 sentences)",
+  "summary": "2-3 sentence comprehensive overview of the match quality with specific details",
+  "strengths": ["Specific strength 1", "Specific strength 2", "Specific strength 3", "Specific strength 4"],  // 4-6 detailed bullet points
+  "concerns": ["Specific concern 1", "Specific concern 2", "Specific concern 3"],  // 3-5 bullet points (or empty array if none)
+  "recommendation": "Detailed recommendation (2-3 sentences) with specific reasoning",
   "score_adjustment": 0,  // Integer from -10 to +10 (0 if baseline is accurate)
   "flags": []  // Array of additional flags: [{{"type": "...", "severity": "low|medium|high", "description": "..."}}]
 }}
 
 Guidelines:
 - Be specific and reference actual skills/experiences from the CV
-- Keep bullets concise (1 line each)
-- Focus on actionable insights
+- Provide detailed bullets (1-2 lines each) with concrete examples
+- Expand on key points with additional context and analysis
+- Focus on actionable insights with thorough explanations
 - Only adjust score if you identify significant qualitative factors the algorithm missed"""
 
         return prompt
@@ -273,7 +274,7 @@ Guidelines:
                     ],
                     response_format={"type": "json_object"},
                     temperature=0.3,  # Lower temperature for consistency
-                    max_tokens=1000
+                    max_tokens=1500  # Increased to allow for more detailed content
                 ),
                 timeout=self.timeout
             )
@@ -293,7 +294,7 @@ Guidelines:
                 asyncio.to_thread(
                     self.client.messages.create,
                     model=self.model,
-                    max_tokens=1000,
+                    max_tokens=1500,  # Increased to allow for more detailed content
                     temperature=0.3,
                     system=system_prompt,
                     messages=[
@@ -354,7 +355,7 @@ Guidelines:
 
             system_prompt = """You are an expert HR analyst conducting detailed candidate reviews.
 
-Your task is to provide a comprehensive assessment of how well a candidate matches a job opening.
+Your task is to provide a comprehensive, in-depth assessment of how well a candidate matches a job opening.
 
 Focus on:
 - Technical skills alignment and depth
@@ -364,7 +365,7 @@ Focus on:
 - Cultural fit signals and soft skills indicators
 - Any red flags or concerns
 
-Be thorough but fair. Provide actionable insights for recruiters."""
+Be thorough, detailed, and fair. Provide comprehensive actionable insights for recruiters with expanded analysis and context."""
 
             user_prompt = self._format_batch_review_prompt(context)
 
@@ -462,9 +463,9 @@ Algorithmic Flags ({len(context['flags'])}):
 # Your Task
 Provide a comprehensive review in JSON format:
 {{
-  "strengths": ["Key strength 1", "Key strength 2", "Key strength 3"],  // 3-5 bullet points
-  "weaknesses": ["Concern 1", "Concern 2", "Concern 3"],  // 3-5 bullet points
-  "detailed_review": "2-3 paragraph comprehensive assessment covering: technical fit, experience relevance, growth trajectory, and overall suitability. Be specific and reference actual skills/experiences from the CV.",
+  "strengths": ["Key strength 1", "Key strength 2", "Key strength 3", "Key strength 4"],  // 4-6 detailed bullet points
+  "weaknesses": ["Concern 1", "Concern 2", "Concern 3", "Concern 4"],  // 4-6 bullet points
+  "detailed_review": "3-4 paragraph comprehensive assessment covering: technical fit, experience relevance, growth trajectory, and overall suitability. Be specific and reference actual skills/experiences from the CV. Provide additional depth and context in your analysis.",
   "score_adjustment": 0,  // Integer from -10 to +10 based on qualitative factors
   "flags": []  // Additional flags if needed: [{{"type": "...", "severity": "low|medium|high", "description": "..."}}]
 }}

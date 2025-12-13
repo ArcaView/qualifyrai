@@ -74,7 +74,7 @@ export const parseScoreAPI = {
  * Extract skills from job description
  * This is a simple implementation - in production you might want something more sophisticated
  */
-function extractSkillsFromDescription(description: string): { required: string[], preferred: string[] } {
+export function extractSkillsFromDescription(description: string): { required: string[], preferred: string[] } {
   const commonSkills = [
     'Python', 'JavaScript', 'TypeScript', 'React', 'Node.js', 'Java', 'C++', 'C#',
     'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes', 'SQL', 'PostgreSQL', 'MongoDB',
@@ -128,7 +128,7 @@ function extractSkillsFromDescription(description: string): { required: string[]
 /**
  * Determine fit level based on score
  */
-function getFitLevel(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
+export function getFitLevel(score: number): 'excellent' | 'good' | 'fair' | 'poor' {
   if (score >= 85) return 'excellent';
   if (score >= 70) return 'good';
   if (score >= 55) return 'fair';

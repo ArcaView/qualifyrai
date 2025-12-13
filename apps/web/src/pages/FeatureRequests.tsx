@@ -81,7 +81,7 @@ const FeatureRequests = () => {
     try {
       const fingerprint = getBrowserFingerprint();
 
-      // Fetch feature requests (exclude declined from public view)
+      // Fetch feature requests (exclude declined from public view and old feedback entries)
       let query = supabase
         .from("feature_requests")
         .select("*");
@@ -95,6 +95,11 @@ const FeatureRequests = () => {
       }
 
       const { data: featuresData, error: featuresError } = await query;
+
+      // Filter out old feedback entries (titles starting with "Feedback:")
+      const filteredFeatures = (featuresData || []).filter(
+        (feature) => !feature.title.startsWith("Feedback:")
+      );
 
       if (featuresError) {
         // TODO: Replace with proper error logging service (e.g., Sentry)
@@ -116,7 +121,7 @@ const FeatureRequests = () => {
       );
 
       // Combine features with user votes
-      const featuresWithVotes = (featuresData || []).map((feature) => ({
+      const featuresWithVotes = filteredFeatures.map((feature) => ({
         ...feature,
         userVote: votesMap.get(feature.id) || null,
       }));
@@ -315,10 +320,9 @@ const FeatureRequests = () => {
     }
 
     try {
-      const { error } = await supabase.from("feature_requests").insert({
-        title: "Feedback: " + feedback.message.substring(0, 50),
-        description: `${feedback.message}\n\n${feedback.email ? `Contact: ${feedback.email}` : ""}`,
-        status: "pending",
+      const { error } = await supabase.from("feedback_submissions").insert({
+        message: feedback.message.trim(),
+        email: feedback.email.trim() || null,
       });
 
       if (error) throw error;

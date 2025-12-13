@@ -12,18 +12,38 @@ import { usePricing } from "@/contexts/PricingContext";
 const CompleteSignup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, hasActiveSubscription, isLoading: userLoading } = useUser();
+  const { user, hasActiveSubscription, isLoading: userLoading, subscriptionChecked } = useUser();
   const { plans, isLoading: plansLoading } = usePricing();
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [verifyingPayment, setVerifyingPayment] = useState(false);
 
-  // Check if user already has a subscription
+  // Check if user already has a subscription - redirect IMMEDIATELY before rendering
   useEffect(() => {
-    if (!userLoading && hasActiveSubscription) {
-      // User already paid, redirect to dashboard
-      navigate('/dashboard', { replace: true });
+    if (subscriptionChecked && hasActiveSubscription) {
+      // User already paid, redirect to dashboard immediately
+      // Use replace to avoid adding to history
+      window.location.replace('/dashboard');
     }
-  }, [hasActiveSubscription, userLoading, navigate]);
+  }, [hasActiveSubscription, subscriptionChecked]);
+
+  // Don't render anything until subscription check is complete
+  // This prevents the flash
+  if (!subscriptionChecked || userLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If user has subscription, show loading while redirect happens
+  if (hasActiveSubscription) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // Check for successful payment redirect
   useEffect(() => {
